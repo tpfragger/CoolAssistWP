@@ -1,0 +1,57 @@
+.coolassist-login-form,
+.coolassist-ai-page {
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.image-upload-section,
+.predefined-buttons,
+.chat-interface {
+    margin-bottom: 30px;
+}
+
+.action-button {
+    display: inline-block;
+    margin: 5px;
+    padding: 10px 15px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+#chat-messages {
+    height: 300px;
+    overflow-y: auto;
+    border: 1px solid #ccc;
+    padding: 10px;
+    margin-bottom: 10px;
+}
+
+#chat-form {
+    display: flex;
+}
+
+#user-message {
+    flex-grow: 1;
+    margin-right: 10px;
+}
+
+@media (max-width: 768px) {
+    .action-button {
+        display: block;
+        width: 100%;
+        margin: 10px 0;
+    }
+
+    #chat-form {
+        flex-direction: column;
+    }
+
+    #user-message {
+        margin-right: 0;
+        margin-bottom: 10px;
+    }
+}

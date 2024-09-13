@@ -42,31 +42,34 @@ function coolassist_activate() {
         )
     );
 
-    // Create necessary pages
+    // Create CoolAssist page
     coolassist_create_pages();
+
+    // Flush rewrite rules
+    flush_rewrite_rules();
 }
 
 function coolassist_create_pages() {
-    $pages = array(
-        'coolassist-login' => array(
-            'title' => 'CoolAssist Login',
-            'content' => '[coolassist_login]'
-        ),
-        'coolassist-ai' => array(
-            'title' => 'CoolAssist AI',
-            'content' => '[coolassist_ai]'
-        )
+    $coolassist_page = array(
+        'post_title'    => 'CoolAssist',
+        'post_content'  => '[coolassist_page]',
+        'post_status'   => 'publish',
+        'post_author'   => 1,
+        'post_type'     => 'page',
     );
 
-    foreach ($pages as $slug => $page) {
-        if (null === get_page_by_path($slug)) {
-            wp_insert_post(array(
-                'post_title' => $page['title'],
-                'post_content' => $page['content'],
-                'post_status' => 'publish',
-                'post_type' => 'page',
-                'post_name' => $slug
-            ));
-        }
+    if (null === get_page_by_path('coolassist')) {
+        wp_insert_post($coolassist_page);
     }
+}
+
+// Deactivation hook
+register_deactivation_hook(__FILE__, 'coolassist_deactivate');
+
+function coolassist_deactivate() {
+    // Remove AC technician role
+    remove_role('ac_technician');
+
+    // Flush rewrite rules
+    flush_rewrite_rules();
 }

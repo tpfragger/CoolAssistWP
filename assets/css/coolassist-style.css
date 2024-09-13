@@ -1,6 +1,6 @@
-.coolassist-login-form,
-.coolassist-ai-page {
-    max-width: 600px;
+.coolassist-ai-page,
+.coolassist-login-form {
+    max-width: 800px;
     margin: 0 auto;
     padding: 20px;
 }

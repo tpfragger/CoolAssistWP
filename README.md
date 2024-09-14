@@ -35,7 +35,7 @@ CoolAssist is a WordPress plugin that provides an AI-powered assistant for AC re
 
 ## Support
 
-For support, please contact [Your Contact Information]
+For support, please contact tpinnola@stevens.edu
 
 ## License
 

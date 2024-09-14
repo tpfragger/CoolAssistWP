@@ -1,27 +1,44 @@
-<div class="coolassist-ai-page">
-    <h1>CoolAssist AI</h1>
-    
-    <div class="image-upload-section">
-        <h2>Upload AC Unit Image</h2>
-        <form id="image-upload-form" enctype="multipart/form-data">
-            <input type="file" name="ac_image" accept="image/*" required>
-            <button type="submit">Analyze Image</button>
-        </form>
+<div class="coolassist-container">
+    <div class="coolassist-header">
+        <img src="<?php echo COOLASSIST_PLUGIN_URL . 'assets/images/fourstarlogo.png'; ?>" alt="FourStar Logo" class="company-logo">
+        <h1>CoolAssist AI</h1>
     </div>
-    
-    <div class="predefined-buttons">
-        <h2>Quick Actions</h2>
-        <button class="action-button" data-action="common-issues">5 Most Common Issues</button>
-        <button class="action-button" data-action="maintenance-tips">Maintenance Tips</button>
-        <button class="action-button" data-action="troubleshooting">Troubleshooting Guide</button>
-    </div>
-    
-    <div class="chat-interface">
-        <h2>Chat with CoolAssist</h2>
-        <div id="chat-messages"></div>
-        <form id="chat-form">
-            <input type="text" id="user-message" placeholder="Type your message here..." required>
-            <button type="submit">Send</button>
-        </form>
+    <div class="coolassist-main">
+        <div class="coolassist-sidebar">
+            <div class="image-upload-section">
+                <h2>Upload AC Unit Image</h2>
+                <form id="image-upload-form" enctype="multipart/form-data">
+                    <div class="file-input-wrapper">
+                        <input type="file" name="image" accept="image/*" required id="image-upload">
+                        <label for="image-upload">Choose File</label>
+                    </div>
+                    <button type="submit" class="coolassist-button">Analyze Image</button>
+                </form>
+            </div>
+
+            <div class="model-selection">
+                <h2>Select AC Model</h2>
+                <select id="model-number-select">
+                    <option value="">Select a model number</option>
+                </select>
+            </div>
+
+            <div class="quick-actions">
+                <h2>Quick Actions</h2>
+                <button class="action-button coolassist-button" data-action="common-issues">5 Most Common Issues</button>
+                <button class="action-button coolassist-button" data-action="maintenance-tips">Maintenance Tips</button>
+                <button class="action-button coolassist-button" data-action="troubleshooting">Troubleshooting Guide</button>
+            </div>
+        </div>
+
+        <div class="chat-interface">
+            <h2>Chat with CoolAssist</h2>
+            <div id="chat-messages"></div>
+            <form id="chat-form">
+                <input type="text" id="user-message" placeholder="Type your message here..." required>
+                <button type="submit" class="coolassist-button">Send</button>
+            </form>
+            <button id="clear-chat" class="coolassist-button">Clear Chat</button>
+        </div>
     </div>
 </div>

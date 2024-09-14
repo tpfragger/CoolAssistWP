@@ -11,6 +11,7 @@
  * Text Domain: coolassist
  */
 
+
 if (!defined('ABSPATH')) {
     exit; // Exit if accessed directly
 }
@@ -20,6 +21,16 @@ define('COOLASSIST_PLUGIN_URL', plugin_dir_url(__FILE__));
 
 // Include necessary files
 require_once COOLASSIST_PLUGIN_DIR . 'includes/class-coolassist.php';
+require_once COOLASSIST_PLUGIN_DIR . 'includes/class-coolassist-user.php';
+require_once COOLASSIST_PLUGIN_DIR . 'includes/class-coolassist-manual.php';
+
+// Start session for user authentication
+function coolassist_start_session() {
+    if (!session_id()) {
+        session_start();
+    }
+}
+add_action('init', 'coolassist_start_session');
 
 // Initialize the plugin
 function coolassist_init() {
@@ -32,15 +43,36 @@ add_action('plugins_loaded', 'coolassist_init');
 register_activation_hook(__FILE__, 'coolassist_activate');
 
 function coolassist_activate() {
-    // Create AC technician role
-    add_role(
-        'ac_technician',
-        'AC Technician',
-        array(
-            'read' => true,
-            'access_coolassist' => true,
-        )
-    );
+    global $wpdb;
+    
+    // Create users table
+    $table_name = $wpdb->prefix . 'coolassist_users';
+    $charset_collate = $wpdb->get_charset_collate();
+
+    $sql = "CREATE TABLE $table_name (
+        id mediumint(9) NOT NULL AUTO_INCREMENT,
+        username varchar(50) NOT NULL,
+        password varchar(255) NOT NULL,
+        name varchar(100) NOT NULL,
+        PRIMARY KEY  (id),
+        UNIQUE KEY username (username)
+    ) $charset_collate;";
+
+    require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
+    dbDelta($sql);
+
+    // Create AC manuals table
+    $table_name = $wpdb->prefix . 'coolassist_manuals';
+
+    $sql = "CREATE TABLE $table_name (
+        id mediumint(9) NOT NULL AUTO_INCREMENT,
+        model_number varchar(100) NOT NULL,
+        file_name varchar(255) NOT NULL,
+        file_path varchar(255) NOT NULL,
+        PRIMARY KEY  (id)
+    ) $charset_collate;";
+
+    dbDelta($sql);
 
     // Create CoolAssist page
     coolassist_create_pages();
@@ -67,9 +99,6 @@ function coolassist_create_pages() {
 register_deactivation_hook(__FILE__, 'coolassist_deactivate');
 
 function coolassist_deactivate() {
-    // Remove AC technician role
-    remove_role('ac_technician');
-
     // Flush rewrite rules
     flush_rewrite_rules();
 }

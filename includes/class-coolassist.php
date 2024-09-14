@@ -1,27 +1,28 @@
 <?php
 class CoolAssist {
+    private $api_key;
+
+    public function __construct() {
+        $this->api_key = get_option('coolassist_claude_api_key');
+    }
+
     public function init() {
-        add_action('init', array($this, 'register_post_types'));
         add_action('wp_enqueue_scripts', array($this, 'enqueue_scripts'));
         add_action('admin_enqueue_scripts', array($this, 'enqueue_admin_scripts'));
         add_action('admin_menu', array($this, 'add_admin_menu'));
         add_action('admin_init', array($this, 'register_settings'));
-        add_action('rest_api_init', array($this, 'register_api_endpoints'));
+        add_action('wp_ajax_coolassist_chat', array($this, 'handle_chat'));
+        add_action('wp_ajax_coolassist_upload_image', array($this, 'handle_image_upload'));
+        add_action('wp_ajax_coolassist_create_user', array($this, 'ajax_create_user'));
+        add_action('wp_ajax_coolassist_delete_user', array($this, 'ajax_delete_user'));
+        add_action('wp_ajax_coolassist_reset_password', array($this, 'ajax_reset_password'));
+        add_action('wp_ajax_coolassist_upload_manual', array($this, 'ajax_upload_manual'));
+        add_action('wp_ajax_coolassist_delete_manual', array($this, 'ajax_delete_manual'));
+        add_action('wp_ajax_coolassist_login', array($this, 'ajax_login'));
+        add_action('wp_ajax_nopriv_coolassist_login', array($this, 'ajax_login'));
+        add_action('wp_ajax_coolassist_get_model_numbers', array($this, 'ajax_get_model_numbers'));
+        add_action('wp_ajax_nopriv_coolassist_get_model_numbers', array($this, 'ajax_get_model_numbers'));
         add_shortcode('coolassist_page', array($this, 'coolassist_page_shortcode'));
-        add_filter('template_include', array($this, 'load_coolassist_template'));
-    }
-
-    public function register_post_types() {
-        register_post_type('ac_manual', array(
-            'labels' => array(
-                'name' => __('AC Manuals', 'coolassist'),
-                'singular_name' => __('AC Manual', 'coolassist')
-            ),
-            'public' => true,
-            'has_archive' => true,
-            'supports' => array('title', 'editor', 'thumbnail'),
-            'menu_icon' => 'dashicons-media-document'
-        ));
     }
 
     public function enqueue_scripts() {
@@ -39,6 +40,10 @@ class CoolAssist {
         }
         wp_enqueue_style('coolassist-admin-style', COOLASSIST_PLUGIN_URL . 'assets/css/coolassist-admin-style.css');
         wp_enqueue_script('coolassist-admin-script', COOLASSIST_PLUGIN_URL . 'assets/js/coolassist-admin-script.js', array('jquery'), '1.0.0', true);
+        wp_localize_script('coolassist-admin-script', 'coolassist_ajax', array(
+            'ajax_url' => admin_url('admin-ajax.php'),
+            'nonce' => wp_create_nonce('coolassist-nonce')
+        ));
     }
 
     public function add_admin_menu() {
@@ -48,141 +53,317 @@ class CoolAssist {
     public function render_settings_page() {
         $active_tab = isset($_GET['tab']) ? $_GET['tab'] : 'general';
         ?>
-        <div class="wrap">
+        <div class="wrap coolassist-settings-page">
             <h1>CoolAssist Settings</h1>
             <h2 class="nav-tab-wrapper">
                 <a href="?page=coolassist-settings&tab=general" class="nav-tab <?php echo $active_tab == 'general' ? 'nav-tab-active' : ''; ?>">General Settings</a>
-                <a href="?page=coolassist-settings&tab=user_access" class="nav-tab <?php echo $active_tab == 'user_access' ? 'nav-tab-active' : ''; ?>">User Access</a>
-                <a href="?page=coolassist-settings&tab=ac_manuals" class="nav-tab <?php echo $active_tab == 'ac_manuals' ? 'nav-tab-active' : ''; ?>">AC Manuals</a>
+                <a href="?page=coolassist-settings&tab=users" class="nav-tab <?php echo $active_tab == 'users' ? 'nav-tab-active' : ''; ?>">Users</a>
+                <a href="?page=coolassist-settings&tab=manuals" class="nav-tab <?php echo $active_tab == 'manuals' ? 'nav-tab-active' : ''; ?>">AC Manuals</a>
             </h2>
 
-            <form method="post" action="options.php">
-                <?php
-                if ($active_tab == 'general') {
-                    settings_fields('coolassist_general_settings');
-                    do_settings_sections('coolassist_general_settings');
-                } elseif ($active_tab == 'user_access') {
-                    $this->render_user_access_tab();
-                } elseif ($active_tab == 'ac_manuals') {
-                    $this->render_ac_manuals_tab();
-                }
-                submit_button();
-                ?>
-            </form>
+            <?php
+            if ($active_tab == 'general') {
+                $this->render_general_settings_tab();
+            } elseif ($active_tab == 'users') {
+                $this->render_users_tab();
+            } elseif ($active_tab == 'manuals') {
+                $this->render_manuals_tab();
+            }
+            ?>
         </div>
         <?php
     }
 
+    public function render_general_settings_tab() {
+        ?>
+        <form method="post" action="options.php">
+            <?php
+            settings_fields('coolassist_general_settings');
+            do_settings_sections('coolassist_general_settings');
+            ?>
+            <table class="form-table">
+                <tr>
+                    <th scope="row">
+                        <label for="coolassist_claude_api_key">Claude API Key</label>
+                    </th>
+                    <td>
+                        <div class="api-key-wrapper">
+                            <input type="password" id="coolassist_claude_api_key" name="coolassist_claude_api_key" value="<?php echo esc_attr(get_option('coolassist_claude_api_key')); ?>" class="regular-text" />
+                            <button type="button" id="toggle-api-key" class="button">Show API Key</button>
+                        </div>
+                    </td>
+                </tr>
+            </table>
+            <?php submit_button(); ?>
+        </form>
+        <script>
+        jQuery(document).ready(function($) {
+            $('#toggle-api-key').click(function() {
+                var $input = $('#coolassist_claude_api_key');
+                if ($input.attr('type') === 'password') {
+                    $input.attr('type', 'text');
+                    $(this).text('Hide API Key');
+                } else {
+                    $input.attr('type', 'password');
+                    $(this).text('Show API Key');
+                }
+            });
+        });
+        </script>
+        <?php
+    }
+
+    public function render_users_tab() {
+        $coolassist_user = new CoolAssist_User();
+        ?>
+        <h3>Create New User</h3>
+        <form id="create-user-form" method="post">
+            <?php wp_nonce_field('create_coolassist_user', 'create_user_nonce'); ?>
+            <table class="form-table">
+                <tr>
+                    <th><label for="first_name">First Name</label></th>
+                    <td><input type="text" name="first_name" id="first_name" class="regular-text" required></td>
+                </tr>
+                <tr>
+                    <th><label for="last_name">Last Name</label></th>
+                    <td><input type="text" name="last_name" id="last_name" class="regular-text" required></td>
+                </tr>
+                <tr>
+                    <th><label for="password">Password</label></th>
+                    <td><input type="password" name="password" id="password" class="regular-text" required></td>
+                </tr>
+            </table>
+            <?php submit_button('Create User'); ?>
+        </form>
+
+        <h3>User List</h3>
+        <?php
+        $users = $coolassist_user->get_all_users();
+        if (!empty($users)) {
+            ?>
+            <table class="wp-list-table widefat fixed striped">
+                <thead>
+                    <tr>
+                        <th>Username</th>
+                        <th>Name</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($users as $user) { ?>
+                        <tr>
+                            <td><?php echo esc_html($user->username); ?></td>
+                            <td><?php echo esc_html($user->name); ?></td>
+                            <td>
+                                <button class="button delete-user" data-user-id="<?php echo esc_attr($user->id); ?>">Delete</button>
+                                <button class="button reset-password" data-user-id="<?php echo esc_attr($user->id); ?>">Reset Password</button>
+                            </td>
+                        </tr>
+                    <?php } ?>
+                </tbody>
+            </table>
+            <?php
+        } else {
+            echo '<p>No users found.</p>';
+        }
+    }
+
+    public function render_manuals_tab() {
+        $coolassist_manual = new CoolAssist_Manual();
+        ?>
+        <h3>Upload AC Manual</h3>
+        <form id="upload-manual-form" method="post" enctype="multipart/form-data">
+            <?php wp_nonce_field('upload_ac_manual', 'upload_manual_nonce'); ?>
+            <table class="form-table">
+                <tr>
+                    <th><label for="model_number">Model Number</label></th>
+                    <td><input type="text" name="model_number" id="model_number" class="regular-text" required></td>
+                </tr>
+                <tr>
+                    <th><label for="manual_file">Manual PDF</label></th>
+                    <td><input type="file" name="manual_file" id="manual_file" accept=".pdf" required></td>
+                </tr>
+            </table>
+            <?php submit_button('Upload Manual'); ?>
+        </form>
+
+        <h3>AC Manuals List</h3>
+        <?php
+        $manuals = $coolassist_manual->get_all_manuals();
+        if (!empty($manuals)) {
+            ?>
+            <table class="wp-list-table widefat fixed striped">
+                <thead>
+                    <tr>
+                        <th>Model Number</th>
+                        <th>File Name</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($manuals as $manual) { ?>
+                        <tr>
+                            <td><?php echo esc_html($manual->model_number); ?></td>
+                            <td><?php echo esc_html($manual->file_name); ?></td>
+                            <td>
+                                <a href="<?php echo esc_url($manual->file_path); ?>" target="_blank" class="button">Preview</a>
+                                <a href="<?php echo esc_url($manual->file_path); ?>" download class="button">Download</a>
+                                <button class="button delete-manual" data-manual-id="<?php echo esc_attr($manual->id); ?>">Delete</button>
+                            </td>
+                        </tr>
+                    <?php } ?>
+                </tbody>
+            </table>
+            <?php
+        } else {
+            echo '<p>No manuals found.</p>';
+        }
+    }
+
     public function register_settings() {
         register_setting('coolassist_general_settings', 'coolassist_claude_api_key');
-        register_setting('coolassist_general_settings', 'coolassist_appearance');
-
-        add_settings_section('coolassist_general_settings_section', 'General Settings', null, 'coolassist_general_settings');
-
-        add_settings_field('coolassist_claude_api_key', 'Claude API Key', array($this, 'render_api_key_field'), 'coolassist_general_settings', 'coolassist_general_settings_section');
-        add_settings_field('coolassist_appearance', 'Appearance', array($this, 'render_appearance_field'), 'coolassist_general_settings', 'coolassist_general_settings_section');
     }
 
-    public function render_api_key_field() {
-        $api_key = get_option('coolassist_claude_api_key');
-        echo "<input type='text' name='coolassist_claude_api_key' value='" . esc_attr($api_key) . "' class='regular-text'>";
+    public function handle_chat() {
+        check_ajax_referer('coolassist-nonce', 'nonce');
+
+        $message = sanitize_text_field($_POST['message']);
+        $model_number = isset($_POST['model_number']) ? sanitize_text_field($_POST['model_number']) : '';
+
+        $response = $this->call_claude_api($message, $model_number);
+
+        wp_send_json_success($response);
     }
 
-    public function render_appearance_field() {
-        $appearance = get_option('coolassist_appearance', 'light');
-        ?>
-        <select name="coolassist_appearance">
-            <option value="light" <?php selected($appearance, 'light'); ?>>Light</option>
-            <option value="dark" <?php selected($appearance, 'dark'); ?>>Dark</option>
-        </select>
-        <?php
-    }
+    public function handle_image_upload() {
+        check_ajax_referer('coolassist-nonce', 'nonce');
 
-    public function render_user_access_tab() {
-        ?>
-        <h3>Create New AC Technician Account</h3>
-        <table class="form-table">
-            <tr>
-                <th><label for="username">Username</label></th>
-                <td><input type="text" name="username" id="username" class="regular-text" required></td>
-            </tr>
-            <tr>
-                <th><label for="email">Email</label></th>
-                <td><input type="email" name="email" id="email" class="regular-text" required></td>
-            </tr>
-            <tr>
-                <th><label for="password">Password</label></th>
-                <td><input type="password" name="password" id="password" class="regular-text" required></td>
-            </tr>
-        </table>
-        <?php
-    }
-
-    public function render_ac_manuals_tab() {
-        ?>
-        <h3>AC Manuals</h3>
-        <p>Manage AC manuals in the <a href="<?php echo admin_url('edit.php?post_type=ac_manual'); ?>">AC Manuals</a> section.</p>
-        <?php
-    }
-
-    public function register_api_endpoints() {
-        register_rest_route('coolassist/v1', '/chat', array(
-            'methods' => 'POST',
-            'callback' => array($this, 'handle_chat'),
-            'permission_callback' => function() {
-                return current_user_can('access_coolassist');
-            }
-        ));
-
-        register_rest_route('coolassist/v1', '/upload-image', array(
-            'methods' => 'POST',
-            'callback' => array($this, 'handle_image_upload'),
-            'permission_callback' => function() {
-                return current_user_can('access_coolassist');
-            }
-        ));
-    }
-
-    public function handle_chat($request) {
-        $parameters = $request->get_json_params();
-        $user_message = sanitize_text_field($parameters['message']);
-
-        // Implement Claude API call here
-        // For now, we'll return a mock response
-        return rest_ensure_response(array(
-            'content' => array(
-                array('text' => 'This is a mock response from the AI. Implement actual API call here.')
-            )
-        ));
-    }
-
-    public function handle_image_upload($request) {
-        $files = $request->get_file_params();
-        
-        if (empty($files['image'])) {
-            return new WP_Error('no_image', 'No image was uploaded.', array('status' => 400));
+        if (!isset($_FILES['image'])) {
+            wp_send_json_error('No image was uploaded.');
         }
 
-        $file = $files['image'];
+        $uploaded_file = $_FILES['image'];
         $upload_overrides = array('test_form' => false);
-        $movefile = wp_handle_upload($file, $upload_overrides);
+        $movefile = wp_handle_upload($uploaded_file, $upload_overrides);
 
         if ($movefile && !isset($movefile['error'])) {
-            // Implement image analysis with Claude API here
-            // For now, we'll return a mock response
-            return rest_ensure_response(array(
-                'content' => array(
-                    array('text' => 'This is a mock response for image analysis. Implement actual API call here.')
-                )
-            ));
+            $image_path = $movefile['file'];
+            $response = $this->analyze_image_with_claude($image_path);
+
+            wp_send_json_success($response);
         } else {
-            return new WP_Error('upload_error', $movefile['error'], array('status' => 500));
+            wp_send_json_error($movefile['error']);
         }
     }
+
+    private function call_claude_api($message, $model_number = '') {
+    $url = 'https://api.anthropic.com/v1/messages';
+    $headers = array(
+        'Content-Type' => 'application/json',
+        'x-api-key' => $this->api_key,
+        'anthropic-version' => '2023-06-01'
+    );
+
+    $system_prompt = "You are an AI assistant specialized in AC and HVAC repairs. Only provide information related to AC units, HVAC systems, and their repair and maintenance. If asked about unrelated topics, politely redirect the conversation back to AC and HVAC matters.";
+    
+    $prompt = $system_prompt . "\n\nUser query: " . $message;
+    if (!empty($model_number)) {
+        $manual_content = $this->get_manual_content($model_number);
+        $prompt .= "\n\nRelevant AC manual information for model $model_number: " . $manual_content;
+    }
+
+    $body = json_encode(array(
+        'model' => 'claude-3-opus-20240229',
+        'max_tokens' => 1000,
+        'messages' => array(
+            array('role' => 'user', 'content' => $prompt)
+        )
+    ));
+
+    $response = wp_remote_post($url, array(
+        'headers' => $headers,
+        'body' => $body,
+        'timeout' => 60
+    ));
+
+    if (is_wp_error($response)) {
+        return array(
+            'content' => array(
+                array('text' => "Error: " . $response->get_error_message())
+            )
+        );
+    }
+
+    $body = json_decode(wp_remote_retrieve_body($response), true);
+    return array(
+        'content' => array(
+            array('text' => $body['content'][0]['text'])
+        )
+    );
+}
+
+    private function analyze_image_with_claude($image_path) {
+        $url = 'https://api.anthropic.com/v1/messages';
+        $headers = array(
+            'Content-Type' => 'application/json',
+            'x-api-key' => $this->api_key,
+            'anthropic-version' => '2023-06-01'
+        );
+
+	$image_data = base64_encode(file_get_contents($image_path));
+        $body = json_encode(array(
+            'model' => 'claude-3-opus-20240229',
+            'max_tokens' => 1000,
+            'messages' => array(
+                array(
+                    'role' => 'user',
+                    'content' => array(
+                        array('type' => 'image', 'source' => array('type' => 'base64', 'media_type' => 'image/jpeg', 'data' => $image_data)),
+                        array('type' => 'text', 'text' => "Analyze this image of an AC unit. Identify the model number if visible, and describe any visible issues or potential problems. Focus only on AC-related information.")
+                    )
+                )
+            )
+        ));
+
+        $response = wp_remote_post($url, array(
+            'headers' => $headers,
+            'body' => $body,
+            'timeout' => 60
+        ));
+
+        if (is_wp_error($response)) {
+            return array(
+                'content' => array(
+                    array('text' => "Error analyzing image: " . $response->get_error_message())
+                )
+            );
+        }
+
+        $body = json_decode(wp_remote_retrieve_body($response), true);
+        return array(
+            'content' => array(
+                array('text' => $body['content'][0]['text'])
+            )
+        );
+    }
+
+    private function get_manual_content($model_number) {
+    $coolassist_manual = new CoolAssist_Manual();
+    $manual = $coolassist_manual->get_manual_by_model_number($model_number);
+    if ($manual) {
+        $file_content = file_get_contents($manual->file_path);
+        if ($file_content !== false) {
+            // For simplicity, we'll return the first 1000 characters of the file
+            return substr($file_content, 0, 1000);
+        }
+    }
+    return "No specific manual content found for model number $model_number.";
+}
 
     public function coolassist_page_shortcode() {
         ob_start();
-        if (is_user_logged_in() && current_user_can('access_coolassist')) {
+        $coolassist_user = new CoolAssist_User();
+        if ($coolassist_user->is_logged_in()) {
             include COOLASSIST_PLUGIN_DIR . 'templates/coolassist-chat.php';
         } else {
             include COOLASSIST_PLUGIN_DIR . 'templates/coolassist-login.php';
@@ -190,13 +371,128 @@ class CoolAssist {
         return ob_get_clean();
     }
 
-    public function load_coolassist_template($template) {
-        if (is_page('coolassist')) {
-            $new_template = COOLASSIST_PLUGIN_DIR . 'templates/page-coolassist.php';
-            if (file_exists($new_template)) {
-                return $new_template;
-            }
+    public function ajax_create_user() {
+        check_ajax_referer('coolassist-nonce', 'nonce');
+        
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error('Unauthorized access');
         }
-        return $template;
+
+        $first_name = sanitize_text_field($_POST['first_name']);
+        $last_name = sanitize_text_field($_POST['last_name']);
+        $password = $_POST['password'];
+
+        $coolassist_user = new CoolAssist_User();
+        $result = $coolassist_user->create_user($first_name, $last_name, $password);
+
+        if ($result) {
+            wp_send_json_success('User created successfully');
+        } else {
+            wp_send_json_error('Failed to create user');
+        }
+    }
+
+    public function ajax_delete_user() {
+        check_ajax_referer('coolassist-nonce', 'nonce');
+        
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error('Unauthorized access');
+        }
+
+        $user_id = intval($_POST['user_id']);
+
+        $coolassist_user = new CoolAssist_User();
+        $result = $coolassist_user->delete_user($user_id);
+
+        if ($result) {
+            wp_send_json_success('User deleted successfully');
+        } else {
+            wp_send_json_error('Failed to delete user');
+        }
+    }
+
+    public function ajax_reset_password() {
+        check_ajax_referer('coolassist-nonce', 'nonce');
+        
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error('Unauthorized access');
+        }
+
+        $user_id = intval($_POST['user_id']);
+        $new_password = wp_generate_password(12, true, true);
+
+        $coolassist_user = new CoolAssist_User();
+        $result = $coolassist_user->reset_password($user_id, $new_password);
+
+        if ($result) {
+            wp_send_json_success(array('message' => 'Password reset successfully', 'new_password' => $new_password));
+        } else {
+            wp_send_json_error('Failed to reset password');
+        }
+    }
+
+    public function ajax_upload_manual() {
+        check_ajax_referer('coolassist-nonce', 'nonce');
+        
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error('Unauthorized access');
+        }
+
+        $model_number = sanitize_text_field($_POST['model_number']);
+        $file = $_FILES['manual_file'];
+
+        $coolassist_manual = new CoolAssist_Manual();
+        $result = $coolassist_manual->upload_manual($model_number, $file);
+
+        if ($result) {
+            wp_send_json_success('Manual uploaded successfully');
+        } else {
+            wp_send_json_error('Failed to upload manual');
+        }
+    }
+
+    public function ajax_delete_manual() {
+        check_ajax_referer('coolassist-nonce', 'nonce');
+        
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error('Unauthorized access');
+        }
+
+        $manual_id = intval($_POST['manual_id']);
+
+        $coolassist_manual = new CoolAssist_Manual();
+        $result = $coolassist_manual->delete_manual($manual_id);
+
+        if ($result) {
+            wp_send_json_success('Manual deleted successfully');
+        } else {
+            wp_send_json_error('Failed to delete manual');
+        }
+    }
+
+    public function ajax_login() {
+        check_ajax_referer('coolassist-nonce', 'nonce');
+
+        $username = sanitize_user($_POST['username']);
+        $password = $_POST['password'];
+
+        $coolassist_user = new CoolAssist_User();
+        $user = $coolassist_user->authenticate($username, $password);
+
+        if ($user) {
+            $coolassist_user->login($user->id);
+            wp_send_json_success('Login successful');
+        } else {
+            wp_send_json_error('Invalid username or password');
+        }
+    }
+
+    public function ajax_get_model_numbers() {
+        check_ajax_referer('coolassist-nonce', 'nonce');
+
+        $coolassist_manual = new CoolAssist_Manual();
+        $model_numbers = $coolassist_manual->get_all_model_numbers();
+
+        wp_send_json_success($model_numbers);
     }
 }

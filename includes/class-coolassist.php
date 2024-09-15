@@ -298,17 +298,17 @@ class CoolAssist {
         $user_content .= "\n\nRelevant AC manual information for model $model_number: " . $manual_content;
     }
 
-    $body = json_encode(array(
+    $body = array(
         'model' => 'claude-3-opus-20240229',
         'max_tokens' => 1000,
         'messages' => array(
             array('role' => 'user', 'content' => $user_content)
         )
-    ));
+    );
 
     $response = wp_remote_post($url, array(
         'headers' => $headers,
-        'body' => $body,
+        'body' => json_encode($body),
         'timeout' => 60,
     ));
 
@@ -341,58 +341,58 @@ class CoolAssist {
 }
 
     private function analyze_image_with_claude($image_path) {
-        $url = 'https://api.anthropic.com/v1/messages';
-        $headers = array(
-            'Content-Type' => 'application/json',
-            'x-api-key' => $this->api_key,
-            'anthropic-version' => '2023-06-01'
-        );
+    $url = 'https://api.anthropic.com/v1/messages';
+    $headers = array(
+        'Content-Type' => 'application/json',
+        'x-api-key' => $this->api_key,
+        'anthropic-version' => '2023-06-01'
+    );
 
-        $image_data = base64_encode(file_get_contents($image_path));
-        $body = json_encode(array(
-            'model' => 'claude-3-opus-20240229',
-            'max_tokens' => 1000,
-            'messages' => array(
-                array(
-                    'role' => 'user',
-                    'content' => array(
-                        array('type' => 'image', 'source' => array('type' => 'base64', 'media_type' => 'image/jpeg', 'data' => $image_data)),
-                        array('type' => 'text', 'text' => "Analyze this image of an AC unit. Identify the model number if visible, and describe any visible issues or potential problems. Focus only on AC-related information.")
-                    )
+    $image_data = base64_encode(file_get_contents($image_path));
+    $body = array(
+        'model' => 'claude-3-opus-20240229',
+        'max_tokens' => 1000,
+        'messages' => array(
+            array(
+                'role' => 'user',
+                'content' => array(
+                    array('type' => 'image', 'source' => array('type' => 'base64', 'media_type' => 'image/jpeg', 'data' => $image_data)),
+                    array('type' => 'text', 'text' => "Analyze this image of an AC unit. Identify the model number if visible, and describe any visible issues or potential problems. Focus only on AC-related information.")
                 )
             )
-        ));
+        )
+    );
 
-        $response = wp_remote_post($url, array(
-            'headers' => $headers,
-            'body' => $body,
-            'timeout' => 60
-        ));
+    $response = wp_remote_post($url, array(
+        'headers' => $headers,
+        'body' => json_encode($body),
+        'timeout' => 60
+    ));
 
-        if (is_wp_error($response)) {
-            error_log('Claude API Image Analysis Error: ' . $response->get_error_message());
-            return array(
-                'content' => array(
-                    array('text' => "Error analyzing image: Unable to connect to the AI service. Please try again later.")
-                )
-            );
-        }
-
-        $body = json_decode(wp_remote_retrieve_body($response), true);
-        if (isset($body['content'][0]['text'])) {
-            return array(
-                'content' => array(
-                    array('text' => $body['content'][0]['text'])
-                )
-            );
-        } else {
-            return array(
-                'content' => array(
-                    array('text' => "Error: Unexpected response from AI service during image analysis. Please try again.")
-                )
-            );
-        }
+    if (is_wp_error($response)) {
+        error_log('Claude API Image Analysis Error: ' . $response->get_error_message());
+        return array(
+            'content' => array(
+                array('text' => "Error analyzing image: Unable to connect to the AI service. Please try again later.")
+            )
+        );
     }
+
+    $body = json_decode(wp_remote_retrieve_body($response), true);
+    if (isset($body['content'][0]['text'])) {
+        return array(
+            'content' => array(
+                array('text' => $body['content'][0]['text'])
+            )
+        );
+    } else {
+        return array(
+            'content' => array(
+                array('text' => "Error: Unexpected response from AI service during image analysis. Please try again.")
+            )
+        );
+    }
+}
 
     private function get_manual_content($model_number) {
         $coolassist_manual = new CoolAssist_Manual();

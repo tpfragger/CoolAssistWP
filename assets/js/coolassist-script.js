@@ -34,11 +34,12 @@ jQuery(document).ready(function($) {
                 if (response.success) {
                     displayMessage('AI', response.data.content[0].text);
                 } else {
-                    alert('Error analyzing image: ' + response.data);
+                    displayMessage('AI', 'Error: ' + (response.data || 'Unable to process your request. Please try again.'));
                 }
             },
             error: function(xhr, status, error) {
-                alert('Error uploading image: ' + error);
+                console.error('AJAX Error:', status, error);
+                displayMessage('AI', 'Error: Unable to communicate with the server. Please try again later.');
             }
         });
     });
@@ -60,7 +61,9 @@ jQuery(document).ready(function($) {
                 break;
         }
         
-        sendMessage(message);
+        if (message) {
+            sendMessage(message);
+        }
     });
 
     // Chat form handling
@@ -74,31 +77,32 @@ jQuery(document).ready(function($) {
     });
 
     function sendMessage(message) {
-    displayMessage('User', message);
-    
-    var modelNumber = $('#model-number-select').val();
-    
-    $.ajax({
-        url: coolassist_ajax.ajax_url,
-        type: 'POST',
-        data: {
-            action: 'coolassist_chat',
-            nonce: coolassist_ajax.nonce,
-            message: message,
-            model_number: modelNumber
-        },
-        success: function(response) {
-            if (response.success) {
-                displayMessage('AI', response.data.content[0].text);
-            } else {
-                displayMessage('AI', 'Error: Unable to process your request. Please try again.');
+        displayMessage('User', message);
+        
+        var modelNumber = $('#model-number-select').val();
+        
+        $.ajax({
+            url: coolassist_ajax.ajax_url,
+            type: 'POST',
+            data: {
+                action: 'coolassist_chat',
+                nonce: coolassist_ajax.nonce,
+                message: message,
+                model_number: modelNumber
+            },
+            success: function(response) {
+                if (response.success) {
+                    displayMessage('AI', response.data.content[0].text);
+                } else {
+                    displayMessage('AI', 'Error: ' + (response.data || 'Unable to process your request. Please try again.'));
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error('AJAX Error:', status, error);
+                displayMessage('AI', 'Error: Unable to communicate with the server. Please try again later.');
             }
-        },
-        error: function(xhr, status, error) {
-            displayMessage('AI', 'Error: Unable to communicate with the server. Please try again later.');
-        }
-    });
-}
+        });
+    }
 
     function displayMessage(sender, message) {
         var messageHtml = '<p><strong>' + sender + ':</strong> ' + message + '</p>';

@@ -12,6 +12,7 @@ class CoolAssist {
         add_action('admin_menu', array($this, 'add_admin_menu'));
         add_action('admin_init', array($this, 'register_settings'));
         add_action('wp_ajax_coolassist_chat', array($this, 'handle_chat'));
+        add_action('wp_ajax_nopriv_coolassist_chat', array($this, 'handle_chat'));
         add_action('wp_ajax_coolassist_upload_image', array($this, 'handle_image_upload'));
         add_action('wp_ajax_coolassist_create_user', array($this, 'ajax_create_user'));
         add_action('wp_ajax_coolassist_delete_user', array($this, 'ajax_delete_user'));
@@ -26,8 +27,8 @@ class CoolAssist {
     }
 
     public function enqueue_scripts() {
-        wp_enqueue_style('coolassist-style', COOLASSIST_PLUGIN_URL . 'assets/css/coolassist-style.css');
-        wp_enqueue_script('coolassist-script', COOLASSIST_PLUGIN_URL . 'assets/js/coolassist-script.js', array('jquery'), '1.0.0', true);
+        wp_enqueue_style('coolassist-style', COOLASSIST_PLUGIN_URL . 'assets/css/coolassist-style.css', array(), '1.0.1');
+        wp_enqueue_script('coolassist-script', COOLASSIST_PLUGIN_URL . 'assets/js/coolassist-script.js', array('jquery'), '1.0.1', true);
         wp_localize_script('coolassist-script', 'coolassist_ajax', array(
             'ajax_url' => admin_url('admin-ajax.php'),
             'nonce' => wp_create_nonce('coolassist-nonce')
@@ -38,8 +39,8 @@ class CoolAssist {
         if ('toplevel_page_coolassist-settings' !== $hook) {
             return;
         }
-        wp_enqueue_style('coolassist-admin-style', COOLASSIST_PLUGIN_URL . 'assets/css/coolassist-admin-style.css');
-        wp_enqueue_script('coolassist-admin-script', COOLASSIST_PLUGIN_URL . 'assets/js/coolassist-admin-script.js', array('jquery'), '1.0.0', true);
+        wp_enqueue_style('coolassist-admin-style', COOLASSIST_PLUGIN_URL . 'assets/css/coolassist-admin-style.css', array(), '1.0.1');
+        wp_enqueue_script('coolassist-admin-script', COOLASSIST_PLUGIN_URL . 'assets/js/coolassist-admin-script.js', array('jquery'), '1.0.1', true);
         wp_localize_script('coolassist-admin-script', 'coolassist_ajax', array(
             'ajax_url' => admin_url('admin-ajax.php'),
             'nonce' => wp_create_nonce('coolassist-nonce')
@@ -51,7 +52,7 @@ class CoolAssist {
     }
 
     public function render_settings_page() {
-        $active_tab = isset($_GET['tab']) ? $_GET['tab'] : 'general';
+        $active_tab = isset($_GET['tab']) ? sanitize_text_field($_GET['tab']) : 'general';
         ?>
         <div class="wrap coolassist-settings-page">
             <h1>CoolAssist Settings</h1>
@@ -221,18 +222,33 @@ class CoolAssist {
     }
 
     public function register_settings() {
-        register_setting('coolassist_general_settings', 'coolassist_claude_api_key');
+        register_setting('coolassist_general_settings', 'coolassist_claude_api_key', array(
+            'sanitize_callback' => 'sanitize_text_field',
+        ));
     }
 
     public function handle_chat() {
         check_ajax_referer('coolassist-nonce', 'nonce');
 
-        $message = sanitize_text_field($_POST['message']);
+        $message = isset($_POST['message']) ? sanitize_text_field($_POST['message']) : '';
         $model_number = isset($_POST['model_number']) ? sanitize_text_field($_POST['model_number']) : '';
 
-        $response = $this->call_claude_api($message, $model_number);
+        if (empty($message)) {
+            wp_send_json_error('Message cannot be empty');
+            return;
+        }
 
-        wp_send_json_success($response);
+        try {
+            $response = $this->call_claude_api($message, $model_number);
+            if (isset($response['content'][0]['text'])) {
+                wp_send_json_success($response);
+            } else {
+                wp_send_json_error('Failed to get a valid response from the AI service');
+            }
+        } catch (Exception $e) {
+            error_log('CoolAssist Error: ' . $e->getMessage());
+            wp_send_json_error('An error occurred while processing your request.');
+        }
     }
 
     public function handle_image_upload() {
@@ -257,50 +273,72 @@ class CoolAssist {
     }
 
     private function call_claude_api($message, $model_number = '') {
-    $url = 'https://api.anthropic.com/v1/messages';
-    $headers = array(
-        'Content-Type' => 'application/json',
-        'x-api-key' => $this->api_key,
-        'anthropic-version' => '2023-06-01'
-    );
+        if (empty($this->api_key)) {
+            error_log('Claude API Error: API key is not set');
+            return array(
+                'content' => array(
+                    array('text' => "Error: API key is not set. Please configure the API key in the plugin settings.")
+                )
+            );
+        }
 
-    $system_prompt = "You are an AI assistant specialized in AC and HVAC repairs. Only provide information related to AC units, HVAC systems, and their repair and maintenance. If asked about unrelated topics, politely redirect the conversation back to AC and HVAC matters.";
-    
-    $prompt = $system_prompt . "\n\nUser query: " . $message;
-    if (!empty($model_number)) {
-        $manual_content = $this->get_manual_content($model_number);
-        $prompt .= "\n\nRelevant AC manual information for model $model_number: " . $manual_content;
-    }
-
-    $body = json_encode(array(
-        'model' => 'claude-3-opus-20240229',
-        'max_tokens' => 1000,
-        'messages' => array(
-            array('role' => 'user', 'content' => $prompt)
-        )
-    ));
-
-    $response = wp_remote_post($url, array(
-        'headers' => $headers,
-        'body' => $body,
-        'timeout' => 60
-    ));
-
-    if (is_wp_error($response)) {
-        return array(
-            'content' => array(
-                array('text' => "Error: " . $response->get_error_message())
-            )
+        $url = 'https://api.anthropic.com/v1/messages';
+        $headers = array(
+            'Content-Type' => 'application/json',
+            'x-api-key' => $this->api_key,
+            'anthropic-version' => '2023-06-01'
         );
-    }
 
-    $body = json_decode(wp_remote_retrieve_body($response), true);
-    return array(
-        'content' => array(
-            array('text' => $body['content'][0]['text'])
-        )
-    );
-}
+        $system_prompt = "You are an AI assistant specialized in AC and HVAC repairs. Only provide information related to AC units, HVAC systems, and their repair and maintenance. If asked about unrelated topics, politely redirect the conversation back to AC and HVAC matters.";
+        
+        $user_content = $system_prompt . "\n\nUser query: " . $message;
+        if (!empty($model_number)) {
+            $manual_content = $this->get_manual_content($model_number);
+            $user_content .= "\n\nRelevant AC manual information for model $model_number: " . $manual_content;
+        }
+
+        $body = json_encode(array(
+            'model' => 'claude-3-opus-20240229',
+            'max_tokens' => 1000,
+            'messages' => array(
+                array('role' => 'user', 'content' => $user_content)
+            )
+        ));
+
+        $response = wp_remote_post($url, array(
+            'headers' => $headers,
+            'body' => $body,
+            'timeout' => 60,
+	    'data_format' => 'body'
+        ));
+
+        if (is_wp_error($response)) {
+            error_log('Claude API Error: ' . $response->get_error_message());
+            return array(
+                'content' => array(
+                    array('text' => "Error: Unable to connect to the AI service. Please try again later.")
+                )
+            );
+        }
+
+        $response_body = wp_remote_retrieve_body($response);
+        $body = json_decode($response_body, true);
+        
+        if (isset($body['content']) && is_array($body['content']) && !empty($body['content'])) {
+            return array(
+                'content' => array(
+                    array('text' => $body['content'][0]['text'])
+                )
+            );
+        } else {
+            error_log('Unexpected Claude API response: ' . print_r($response_body, true));
+            return array(
+                'content' => array(
+                    array('text' => "Error: Unexpected response from AI service. Please try again.")
+                )
+            );
+        }
+    }
 
     private function analyze_image_with_claude($image_path) {
         $url = 'https://api.anthropic.com/v1/messages';
@@ -310,7 +348,7 @@ class CoolAssist {
             'anthropic-version' => '2023-06-01'
         );
 
-	$image_data = base64_encode(file_get_contents($image_path));
+        $image_data = base64_encode(file_get_contents($image_path));
         $body = json_encode(array(
             'model' => 'claude-3-opus-20240229',
             'max_tokens' => 1000,
@@ -332,33 +370,42 @@ class CoolAssist {
         ));
 
         if (is_wp_error($response)) {
+            error_log('Claude API Image Analysis Error: ' . $response->get_error_message());
             return array(
                 'content' => array(
-                    array('text' => "Error analyzing image: " . $response->get_error_message())
+                    array('text' => "Error analyzing image: Unable to connect to the AI service. Please try again later.")
                 )
             );
         }
 
         $body = json_decode(wp_remote_retrieve_body($response), true);
-        return array(
-            'content' => array(
-                array('text' => $body['content'][0]['text'])
-            )
-        );
+        if (isset($body['content'][0]['text'])) {
+            return array(
+                'content' => array(
+                    array('text' => $body['content'][0]['text'])
+                )
+            );
+        } else {
+            return array(
+                'content' => array(
+                    array('text' => "Error: Unexpected response from AI service during image analysis. Please try again.")
+                )
+            );
+        }
     }
 
     private function get_manual_content($model_number) {
-    $coolassist_manual = new CoolAssist_Manual();
-    $manual = $coolassist_manual->get_manual_by_model_number($model_number);
-    if ($manual) {
-        $file_content = file_get_contents($manual->file_path);
-        if ($file_content !== false) {
-            // For simplicity, we'll return the first 1000 characters of the file
-            return substr($file_content, 0, 1000);
+        $coolassist_manual = new CoolAssist_Manual();
+        $manual = $coolassist_manual->get_manual_by_model_number($model_number);
+        if ($manual) {
+            $file_content = file_get_contents($manual->file_path);
+            if ($file_content !== false) {
+                // For simplicity, we'll return the first 1000 characters of the file
+                return substr($file_content, 0, 1000);
+            }
         }
+        return "No specific manual content found for model number $model_number.";
     }
-    return "No specific manual content found for model number $model_number.";
-}
 
     public function coolassist_page_shortcode() {
         ob_start();

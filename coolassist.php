@@ -1,7 +1,7 @@
 <?php
 /**
  * Plugin Name: CoolAssist
- * Plugin URI: https://github.com/yourusername/coolassist
+ * Plugin URI: https://github.com/tpfragger/CoolAssistWP
  * Description: An AI-powered assistant for AC repair technicians
  * Version: 1.0.0
  * Author: Thomas Pinnola
@@ -10,7 +10,6 @@
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain: coolassist
  */
-
 
 if (!defined('ABSPATH')) {
     exit; // Exit if accessed directly
@@ -23,14 +22,6 @@ define('COOLASSIST_PLUGIN_URL', plugin_dir_url(__FILE__));
 require_once COOLASSIST_PLUGIN_DIR . 'includes/class-coolassist.php';
 require_once COOLASSIST_PLUGIN_DIR . 'includes/class-coolassist-user.php';
 require_once COOLASSIST_PLUGIN_DIR . 'includes/class-coolassist-manual.php';
-
-// Start session for user authentication
-function coolassist_start_session() {
-    if (!session_id()) {
-        session_start();
-    }
-}
-add_action('init', 'coolassist_start_session');
 
 // Initialize the plugin
 function coolassist_init() {

@@ -51,6 +51,18 @@ class CoolAssist_User {
         return $wpdb->delete($this->table_name, array('id' => $user_id), array('%d'));
     }
 
+    public function reset_password($user_id, $new_password) {
+        global $wpdb;
+        $hashed_password = wp_hash_password($new_password);
+        return $wpdb->update(
+            $this->table_name,
+            array('password' => $hashed_password),
+            array('id' => $user_id),
+            array('%s'),
+            array('%d')
+        );
+    }
+
     public function authenticate($username, $password) {
         global $wpdb;
         $user = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$this->table_name} WHERE username = %s", $username));

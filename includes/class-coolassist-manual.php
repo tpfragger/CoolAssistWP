@@ -7,28 +7,28 @@ class CoolAssist_Manual {
         $this->table_name = $wpdb->prefix . 'coolassist_manuals';
     }
 
-   public function upload_manual($model_number, $file) {
-    $upload_dir = wp_upload_dir();
-    $file_name = wp_unique_filename($upload_dir['path'], $file['name']);
-    $file_path = $upload_dir['path'] . '/' . $file_name;
+    public function upload_manual($model_number, $file) {
+        $upload_dir = wp_upload_dir();
+        $file_name = wp_unique_filename($upload_dir['path'], $file['name']);
+        $file_path = $upload_dir['path'] . '/' . $file_name;
 
-    if (move_uploaded_file($file['tmp_name'], $file_path)) {
-        global $wpdb;
-        $result = $wpdb->insert(
-            $this->table_name,
-            array(
-                'model_number' => sanitize_text_field($model_number),
-                'file_name' => $file_name,
-                'file_path' => $file_path // Store the full server path, not the URL
-            ),
-            array('%s', '%s', '%s')
-        );
+        if (move_uploaded_file($file['tmp_name'], $file_path)) {
+            global $wpdb;
+            $result = $wpdb->insert(
+                $this->table_name,
+                array(
+                    'model_number' => sanitize_text_field($model_number),
+                    'file_name' => $file_name,
+                    'file_path' => $file_path
+                ),
+                array('%s', '%s', '%s')
+            );
 
-        return $result ? $wpdb->insert_id : false;
+            return $result ? $wpdb->insert_id : false;
+        }
+
+        return false;
     }
-
-    return false;
-}
 
     public function get_all_manuals() {
         global $wpdb;
@@ -45,10 +45,8 @@ class CoolAssist_Manual {
         $manual = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$this->table_name} WHERE id = %d", $manual_id));
 
         if ($manual) {
-            $upload_dir = wp_upload_dir();
-            $file_path = str_replace($upload_dir['url'], $upload_dir['path'], $manual->file_path);
-            if (file_exists($file_path)) {
-                unlink($file_path);
+            if (file_exists($manual->file_path)) {
+                unlink($manual->file_path);
             }
 
             return $wpdb->delete($this->table_name, array('id' => $manual_id), array('%d'));

@@ -1,4 +1,3 @@
-// File: assets/js/coolassist-admin-script.js
 jQuery(document).ready(function($) {
     // Create user form handling
     $('#create-user-form').on('submit', function(e) {

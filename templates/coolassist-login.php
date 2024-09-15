@@ -10,7 +10,7 @@
             <input type="password" name="password" id="password" required>
         </p>
         <p>
-            <input type="submit" value="Log In">
+            <input type="submit" value="Log In" class="coolassist-button">
         </p>
     </form>
 </div>

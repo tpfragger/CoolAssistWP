@@ -75,12 +75,15 @@ class CoolAssist_User {
     }
 
     public function is_logged_in() {
-        return isset($_SESSION['coolassist_user_id']);
-    }
+    return isset($_SESSION['coolassist_user_id']) && $_SESSION['coolassist_user_id'] > 0;
+}
 
-    public function login($user_id) {
-        $_SESSION['coolassist_user_id'] = $user_id;
+public function login($user_id) {
+    if (!session_id()) {
+        session_start();
     }
+    $_SESSION['coolassist_user_id'] = $user_id;
+}
 
     public function logout() {
         unset($_SESSION['coolassist_user_id']);

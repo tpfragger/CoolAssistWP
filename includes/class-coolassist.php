@@ -228,28 +228,29 @@ class CoolAssist {
     }
 
     public function handle_chat() {
-        check_ajax_referer('coolassist-nonce', 'nonce');
+    check_ajax_referer('coolassist-nonce', 'nonce');
 
-        $message = isset($_POST['message']) ? sanitize_text_field($_POST['message']) : '';
-        $model_number = isset($_POST['model_number']) ? sanitize_text_field($_POST['model_number']) : '';
+    $message = isset($_POST['message']) ? sanitize_text_field($_POST['message']) : '';
+    $model_number = isset($_POST['model_number']) ? sanitize_text_field($_POST['model_number']) : '';
 
-        if (empty($message)) {
-            wp_send_json_error('Message cannot be empty');
-            return;
-        }
-
-        try {
-            $response = $this->call_claude_api($message, $model_number);
-            if (isset($response['content'][0]['text'])) {
-                wp_send_json_success($response);
-            } else {
-                wp_send_json_error('Failed to get a valid response from the AI service');
-            }
-        } catch (Exception $e) {
-            error_log('CoolAssist Error: ' . $e->getMessage());
-            wp_send_json_error('An error occurred while processing your request.');
-        }
+    if (empty($message)) {
+        wp_send_json_error('Message cannot be empty');
+        return;
     }
+
+    try {
+        $response = $this->call_claude_api($message, $model_number);
+        if (isset($response['content'][0]['text'])) {
+            wp_send_json_success($response);
+        } else {
+            error_log('CoolAssist Error: Invalid response structure from call_claude_api');
+            wp_send_json_error('Failed to get a valid response from the AI service');
+        }
+    } catch (Exception $e) {
+        error_log('CoolAssist Error: ' . $e->getMessage());
+        wp_send_json_error('An error occurred while processing your request: ' . $e->getMessage());
+    }
+}
 
     public function handle_image_upload() {
         check_ajax_referer('coolassist-nonce', 'nonce');
@@ -273,72 +274,71 @@ class CoolAssist {
     }
 
     private function call_claude_api($message, $model_number = '') {
-        if (empty($this->api_key)) {
-            error_log('Claude API Error: API key is not set');
-            return array(
-                'content' => array(
-                    array('text' => "Error: API key is not set. Please configure the API key in the plugin settings.")
-                )
-            );
-        }
-
-        $url = 'https://api.anthropic.com/v1/messages';
-        $headers = array(
-            'Content-Type' => 'application/json',
-            'x-api-key' => $this->api_key,
-            'anthropic-version' => '2023-06-01'
-        );
-
-        $system_prompt = "You are an AI assistant specialized in AC and HVAC repairs. Only provide information related to AC units, HVAC systems, and their repair and maintenance. If asked about unrelated topics, politely redirect the conversation back to AC and HVAC matters.";
-        
-        $user_content = $system_prompt . "\n\nUser query: " . $message;
-        if (!empty($model_number)) {
-            $manual_content = $this->get_manual_content($model_number);
-            $user_content .= "\n\nRelevant AC manual information for model $model_number: " . $manual_content;
-        }
-
-        $body = json_encode(array(
-            'model' => 'claude-3-opus-20240229',
-            'max_tokens' => 1000,
-            'messages' => array(
-                array('role' => 'user', 'content' => $user_content)
+    if (empty($this->api_key)) {
+        error_log('Claude API Error: API key is not set');
+        return array(
+            'content' => array(
+                array('text' => "Error: API key is not set. Please configure the API key in the plugin settings.")
             )
-        ));
-
-        $response = wp_remote_post($url, array(
-            'headers' => $headers,
-            'body' => $body,
-            'timeout' => 60,
-	    'data_format' => 'body'
-        ));
-
-        if (is_wp_error($response)) {
-            error_log('Claude API Error: ' . $response->get_error_message());
-            return array(
-                'content' => array(
-                    array('text' => "Error: Unable to connect to the AI service. Please try again later.")
-                )
-            );
-        }
-
-        $response_body = wp_remote_retrieve_body($response);
-        $body = json_decode($response_body, true);
-        
-        if (isset($body['content']) && is_array($body['content']) && !empty($body['content'])) {
-            return array(
-                'content' => array(
-                    array('text' => $body['content'][0]['text'])
-                )
-            );
-        } else {
-            error_log('Unexpected Claude API response: ' . print_r($response_body, true));
-            return array(
-                'content' => array(
-                    array('text' => "Error: Unexpected response from AI service. Please try again.")
-                )
-            );
-        }
+        );
     }
+
+    $url = 'https://api.anthropic.com/v1/messages';
+    $headers = array(
+        'Content-Type' => 'application/json',
+        'x-api-key' => $this->api_key,
+        'anthropic-version' => '2023-06-01'
+    );
+
+    $system_prompt = "You are an AI assistant specialized in AC and HVAC repairs. Only provide information related to AC units, HVAC systems, and their repair and maintenance. If asked about unrelated topics, politely redirect the conversation back to AC and HVAC matters.";
+    
+    $user_content = $system_prompt . "\n\nUser query: " . $message;
+    if (!empty($model_number)) {
+        $manual_content = $this->get_manual_content($model_number);
+        $user_content .= "\n\nRelevant AC manual information for model $model_number: " . $manual_content;
+    }
+
+    $body = json_encode(array(
+        'model' => 'claude-3-opus-20240229',
+        'max_tokens' => 1000,
+        'messages' => array(
+            array('role' => 'user', 'content' => $user_content)
+        )
+    ));
+
+    $response = wp_remote_post($url, array(
+        'headers' => $headers,
+        'body' => $body,
+        'timeout' => 60,
+    ));
+
+    if (is_wp_error($response)) {
+        error_log('Claude API Error: ' . $response->get_error_message());
+        return array(
+            'content' => array(
+                array('text' => "Error: Unable to connect to the AI service. Please try again later.")
+            )
+        );
+    }
+
+    $response_body = wp_remote_retrieve_body($response);
+    $body = json_decode($response_body, true);
+    
+    if (isset($body['content']) && is_array($body['content']) && !empty($body['content'])) {
+        return array(
+            'content' => array(
+                array('text' => $body['content'][0]['text'])
+            )
+        );
+    } else {
+        error_log('Unexpected Claude API response: ' . print_r($response_body, true));
+        return array(
+            'content' => array(
+                array('text' => "Error: Unexpected response from AI service. Please try again.")
+            )
+        );
+    }
+}
 
     private function analyze_image_with_claude($image_path) {
         $url = 'https://api.anthropic.com/v1/messages';
@@ -518,21 +518,21 @@ class CoolAssist {
     }
 
     public function ajax_login() {
-        check_ajax_referer('coolassist-nonce', 'nonce');
+    check_ajax_referer('coolassist-nonce', 'nonce');
 
-        $username = sanitize_user($_POST['username']);
-        $password = $_POST['password'];
+    $username = sanitize_user($_POST['username']);
+    $password = $_POST['password'];
 
-        $coolassist_user = new CoolAssist_User();
-        $user = $coolassist_user->authenticate($username, $password);
+    $coolassist_user = new CoolAssist_User();
+    $user = $coolassist_user->authenticate($username, $password);
 
-        if ($user) {
-            $coolassist_user->login($user->id);
-            wp_send_json_success('Login successful');
-        } else {
-            wp_send_json_error('Invalid username or password');
-        }
+    if ($user) {
+        $coolassist_user->login($user->id);
+        wp_send_json_success(array('message' => 'Login successful', 'redirect' => home_url('/coolassist')));
+    } else {
+        wp_send_json_error('Invalid username or password');
     }
+}
 
     public function ajax_get_model_numbers() {
         check_ajax_referer('coolassist-nonce', 'nonce');

@@ -11,6 +11,13 @@
  * Text Domain: coolassist
  */
 
+function coolassist_start_session() {
+    if (!session_id()) {
+        session_start();
+    }
+}
+add_action('init', 'coolassist_start_session');
+
 if (!defined('ABSPATH')) {
     exit; // Exit if accessed directly
 }

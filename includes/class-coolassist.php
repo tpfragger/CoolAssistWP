@@ -276,11 +276,7 @@ class CoolAssist {
     private function call_claude_api($message, $model_number = '') {
     if (empty($this->api_key)) {
         error_log('Claude API Error: API key is not set');
-        return array(
-            'content' => array(
-                array('text' => "Error: API key is not set. Please configure the API key in the plugin settings.")
-            )
-        );
+        return $this->generate_error_response("API key is not set. Please configure the API key in the plugin settings.");
     }
 
     $url = 'https://api.anthropic.com/v1/messages';
@@ -306,25 +302,34 @@ class CoolAssist {
         )
     );
 
-    $response = wp_remote_post($url, array(
+    $args = array(
         'headers' => $headers,
-        'body' => json_encode($body),
+        'body'    => wp_json_encode($body),
+        'method'  => 'POST',
         'timeout' => 60,
-    ));
+    );
+
+    $response = wp_remote_request($url, $args);
 
     if (is_wp_error($response)) {
         error_log('Claude API Error: ' . $response->get_error_message());
-        return array(
-            'content' => array(
-                array('text' => "Error: Unable to connect to the AI service. Please try again later.")
-            )
-        );
+        return $this->generate_error_response("Unable to connect to the AI service. Please try again later.");
     }
 
+    $response_code = wp_remote_retrieve_response_code($response);
     $response_body = wp_remote_retrieve_body($response);
+
+    error_log('Claude API Response Code: ' . $response_code);
+    error_log('Claude API Response Body: ' . $response_body);
+
+    if ($response_code !== 200) {
+        error_log('Claude API Error: Unexpected response code ' . $response_code);
+        return $this->generate_error_response("Received an unexpected response from the AI service. Please try again.");
+    }
+
     $body = json_decode($response_body, true);
     
-    if (isset($body['content']) && is_array($body['content']) && !empty($body['content'])) {
+    if (isset($body['content'][0]['text'])) {
         return array(
             'content' => array(
                 array('text' => $body['content'][0]['text'])
@@ -332,12 +337,16 @@ class CoolAssist {
         );
     } else {
         error_log('Unexpected Claude API response: ' . print_r($response_body, true));
-        return array(
-            'content' => array(
-                array('text' => "Error: Unexpected response from AI service. Please try again.")
-            )
-        );
+        return $this->generate_error_response("Unexpected response from AI service. Please try again.");
     }
+}
+
+private function generate_error_response($message) {
+    return array(
+        'content' => array(
+            array('text' => "Error: $message")
+        )
+    );
 }
 
     private function analyze_image_with_claude($image_path) {
@@ -363,22 +372,28 @@ class CoolAssist {
         )
     );
 
-    $response = wp_remote_post($url, array(
-        'headers' => $headers,
-        'body' => json_encode($body),
-        'timeout' => 60
-    ));
+    $args = array(
+        'body'        => json_encode($body),
+        'headers'     => $headers,
+        'timeout'     => 60,
+        'data_format' => 'body',
+    );
+
+    $response = wp_remote_post($url, $args);
 
     if (is_wp_error($response)) {
         error_log('Claude API Image Analysis Error: ' . $response->get_error_message());
-        return array(
-            'content' => array(
-                array('text' => "Error analyzing image: Unable to connect to the AI service. Please try again later.")
-            )
-        );
+        return $this->generate_error_response("Error analyzing image: Unable to connect to the AI service. Please try again later.");
     }
 
-    $body = json_decode(wp_remote_retrieve_body($response), true);
+    $response_code = wp_remote_retrieve_response_code($response);
+    if ($response_code !== 200) {
+        error_log('Claude API Image Analysis Error: Unexpected response code ' . $response_code);
+        return $this->generate_error_response("Received an unexpected response from the AI service during image analysis. Please try again.");
+    }
+
+    $response_body = wp_remote_retrieve_body($response);
+    $body = json_decode($response_body, true);
     if (isset($body['content'][0]['text'])) {
         return array(
             'content' => array(
@@ -386,11 +401,7 @@ class CoolAssist {
             )
         );
     } else {
-        return array(
-            'content' => array(
-                array('text' => "Error: Unexpected response from AI service during image analysis. Please try again.")
-            )
-        );
+        return $this->generate_error_response("Unexpected response from AI service during image analysis. Please try again.");
     }
 }
 

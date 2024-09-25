@@ -1,26 +1,3 @@
-<?php
-/**
- * Plugin Name: CoolAssist
- * Plugin URI: https://github.com/tpfragger/CoolAssistWP
- * Description: An AI-powered assistant for AC repair technicians
- * Version: 1.0.0
- * Author: Thomas Pinnola
- * Author URI: https://pinnola.net
- * License: GPL v2 or later
- * License URI: https://www.gnu.org/licenses/gpl-2.0.html
- * Text Domain: coolassist
- */
-
-function coolassist_start_session() {
-    if (!session_id()) {
-        session_start();
-    }
-}
-add_action('init', 'coolassist_start_session');
-
-if (!defined('ABSPATH')) {
-    exit; // Exit if accessed directly
-}
 
 define('COOLASSIST_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('COOLASSIST_PLUGIN_URL', plugin_dir_url(__FILE__));
@@ -79,13 +56,16 @@ function coolassist_activate() {
     $sql = "CREATE TABLE $table_name (
         id mediumint(9) NOT NULL AUTO_INCREMENT,
         user_id mediumint(9) NOT NULL,
+        username varchar(50) NOT NULL,
         sender enum('user', 'ai') NOT NULL,
-        message text NOT NULL,
+        message longtext NOT NULL,
         timestamp datetime DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY  (id)
     ) $charset_collate;";
 
+    require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
     dbDelta($sql);
+
 
     // Create CoolAssist page
     coolassist_create_pages();

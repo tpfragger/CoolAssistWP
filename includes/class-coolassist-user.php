@@ -7,6 +7,10 @@ class CoolAssist_User {
         $this->table_name = $wpdb->prefix . 'coolassist_users';
     }
 
+    public function get_current_user_id() {
+    return isset($_SESSION['coolassist_user_id']) ? $_SESSION['coolassist_user_id'] : null;
+}
+
     public function create_user($first_name, $last_name, $password) {
         global $wpdb;
 

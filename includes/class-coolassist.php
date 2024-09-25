@@ -52,28 +52,60 @@ class CoolAssist {
     }
 
     public function render_settings_page() {
-        $active_tab = isset($_GET['tab']) ? sanitize_text_field($_GET['tab']) : 'general';
-        ?>
-        <div class="wrap coolassist-settings-page">
-            <h1>CoolAssist Settings</h1>
-            <h2 class="nav-tab-wrapper">
-                <a href="?page=coolassist-settings&tab=general" class="nav-tab <?php echo $active_tab == 'general' ? 'nav-tab-active' : ''; ?>">General Settings</a>
-                <a href="?page=coolassist-settings&tab=users" class="nav-tab <?php echo $active_tab == 'users' ? 'nav-tab-active' : ''; ?>">Users</a>
-                <a href="?page=coolassist-settings&tab=manuals" class="nav-tab <?php echo $active_tab == 'manuals' ? 'nav-tab-active' : ''; ?>">AC Manuals</a>
-            </h2>
+    $active_tab = isset($_GET['tab']) ? sanitize_text_field($_GET['tab']) : 'general';
+    ?>
+    <div class="wrap coolassist-settings-page">
+        <h1>CoolAssist Settings</h1>
+        <h2 class="nav-tab-wrapper">
+            <a href="?page=coolassist-settings&tab=general" class="nav-tab <?php echo $active_tab == 'general' ? 'nav-tab-active' : ''; ?>">General Settings</a>
+            <a href="?page=coolassist-settings&tab=users" class="nav-tab <?php echo $active_tab == 'users' ? 'nav-tab-active' : ''; ?>">Users</a>
+            <a href="?page=coolassist-settings&tab=manuals" class="nav-tab <?php echo $active_tab == 'manuals' ? 'nav-tab-active' : ''; ?>">AC Manuals</a>
+            <a href="?page=coolassist-settings&tab=chat_history" class="nav-tab <?php echo $active_tab == 'chat_history' ? 'nav-tab-active' : ''; ?>">Chat History</a>
+        </h2>
 
-            <?php
-            if ($active_tab == 'general') {
-                $this->render_general_settings_tab();
-            } elseif ($active_tab == 'users') {
-                $this->render_users_tab();
-            } elseif ($active_tab == 'manuals') {
-                $this->render_manuals_tab();
-            }
-            ?>
-        </div>
         <?php
-    }
+        if ($active_tab == 'general') {
+            $this->render_general_settings_tab();
+        } elseif ($active_tab == 'users') {
+            $this->render_users_tab();
+        } elseif ($active_tab == 'manuals') {
+            $this->render_manuals_tab();
+        } elseif ($active_tab == 'chat_history') {
+            $this->render_chat_history_tab();
+        }
+        ?>
+    </div>
+    <?php
+}
+
+    public function render_chat_history_tab() {
+    global $wpdb;
+    $table_name = $wpdb->prefix . 'coolassist_chat_history';
+    $chat_history = $wpdb->get_results("SELECT * FROM $table_name ORDER BY timestamp DESC LIMIT 100");
+    ?>
+    <h3>Recent Chat History</h3>
+    <table class="wp-list-table widefat fixed striped">
+        <thead>
+            <tr>
+                <th>User ID</th>
+                <th>Sender</th>
+                <th>Message</th>
+                <th>Timestamp</th>
+            </tr>
+        </thead>
+        <tbody>
+            <?php foreach ($chat_history as $entry): ?>
+                <tr>
+                    <td><?php echo esc_html($entry->user_id); ?></td>
+                    <td><?php echo esc_html($entry->sender); ?></td>
+                    <td><?php echo wp_kses_post($entry->message); ?></td>
+                    <td><?php echo esc_html($entry->timestamp); ?></td>
+                </tr>
+            <?php endforeach; ?>
+        </tbody>
+    </table>
+    <?php
+}
 
     public function render_general_settings_tab() {
         ?>
@@ -239,8 +271,17 @@ class CoolAssist {
     }
 
     try {
+        $coolassist_user = new CoolAssist_User();
+        $user_id = $coolassist_user->get_current_user_id();
+        
+        // Store user message
+        $this->store_chat_history($user_id, 'user', $message);
+        
         $response = $this->call_claude_api($message, $model_number);
         if (isset($response['content'][0]['text'])) {
+            // Store AI response
+            $this->store_chat_history($user_id, 'ai', $response['content'][0]['text']);
+            
             wp_send_json_success($response);
         } else {
             error_log('CoolAssist Error: Invalid response structure from call_claude_api');
@@ -276,11 +317,7 @@ class CoolAssist {
     private function call_claude_api($message, $model_number = '') {
     if (empty($this->api_key)) {
         error_log('Claude API Error: API key is not set');
-        return array(
-            'content' => array(
-                array('text' => "Error: API key is not set. Please configure the API key in the plugin settings.")
-            )
-        );
+        return $this->generate_error_response("API key is not set. Please configure the API key in the plugin settings.");
     }
 
     $url = 'https://api.anthropic.com/v1/messages';
@@ -306,25 +343,31 @@ class CoolAssist {
         )
     );
 
-    $response = wp_remote_post($url, array(
+    $args = array(
         'headers' => $headers,
-        'body' => json_encode($body),
+        'body'    => wp_json_encode($body),
+        'method'  => 'POST',
         'timeout' => 60,
-    ));
+    );
+
+    $response = wp_remote_request($url, $args);
 
     if (is_wp_error($response)) {
         error_log('Claude API Error: ' . $response->get_error_message());
-        return array(
-            'content' => array(
-                array('text' => "Error: Unable to connect to the AI service. Please try again later.")
-            )
-        );
+        return $this->generate_error_response("Unable to connect to the AI service. Please try again later.");
     }
 
+    $response_code = wp_remote_retrieve_response_code($response);
     $response_body = wp_remote_retrieve_body($response);
+
+    if ($response_code !== 200) {
+        error_log('Claude API Error: Unexpected response code ' . $response_code);
+        return $this->generate_error_response("Received an unexpected response from the AI service. Please try again.");
+    }
+
     $body = json_decode($response_body, true);
     
-    if (isset($body['content']) && is_array($body['content']) && !empty($body['content'])) {
+    if (isset($body['content'][0]['text'])) {
         return array(
             'content' => array(
                 array('text' => $body['content'][0]['text'])
@@ -332,11 +375,7 @@ class CoolAssist {
         );
     } else {
         error_log('Unexpected Claude API response: ' . print_r($response_body, true));
-        return array(
-            'content' => array(
-                array('text' => "Error: Unexpected response from AI service. Please try again.")
-            )
-        );
+        return $this->generate_error_response("Unexpected response from AI service. Please try again.");
     }
 }
 
@@ -406,6 +445,22 @@ class CoolAssist {
         }
         return "No specific manual content found for model number $model_number.";
     }
+
+    private function store_chat_history($user_id, $sender, $message) {
+    global $wpdb;
+    $table_name = $wpdb->prefix . 'coolassist_chat_history';
+    
+    $wpdb->insert(
+        $table_name,
+        array(
+            'user_id' => $user_id,
+            'sender' => $sender,
+            'message' => $message,
+            'timestamp' => current_time('mysql')
+        ),
+        array('%d', '%s', '%s', '%s')
+    );
+}
 
     public function coolassist_page_shortcode() {
         ob_start();
@@ -517,7 +572,7 @@ class CoolAssist {
         }
     }
 
-    public function ajax_login() {
+public function ajax_login() {
     check_ajax_referer('coolassist-nonce', 'nonce');
 
     $username = sanitize_user($_POST['username']);
@@ -527,7 +582,7 @@ class CoolAssist {
     $user = $coolassist_user->authenticate($username, $password);
 
     if ($user) {
-        $coolassist_user->login($user->id);
+        $_SESSION['coolassist_user_id'] = $user->id;
         wp_send_json_success(array('message' => 'Login successful', 'redirect' => home_url('/coolassist')));
     } else {
         wp_send_json_error('Invalid username or password');

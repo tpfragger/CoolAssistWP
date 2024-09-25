@@ -31,14 +31,27 @@
             </div>
         </div>
 
-        <div class="chat-interface">
-            <h2>Chat with CoolAssist</h2>
-            <div id="chat-messages"></div>
-            <form id="chat-form">
-                <input type="text" id="user-message" placeholder="Type your message here..." required>
-                <button type="submit" class="coolassist-button">Send</button>
-            </form>
-            <button id="clear-chat" class="coolassist-button">Clear Chat</button>
-        </div>
+           <div class="chat-interface">
+    <h2>Chat with CoolAssist</h2>
+    <div id="chat-messages">
+        <?php
+        $coolassist_user = new CoolAssist_User();
+        $user_id = $coolassist_user->get_current_user_id();
+        $chat_history = $this->get_chat_history($user_id);
+        foreach ($chat_history as $message) {
+            $sender = $message->sender === 'user' ? 'User' : 'AI';
+            echo '<div class="chat-message ' . ($message->sender === 'user' ? 'user-message' : 'ai-message') . '">';
+            echo '<strong>' . $sender . ':</strong> ' . wp_kses_post($message->message);
+            echo '</div>';
+        }
+        ?>
+    </div>
+    <div id="typing-indicator" style="display: none;">AI is typing...</div>
+    <form id="chat-form">
+        <input type="text" id="user-message" placeholder="Type your message here..." required>
+        <button type="submit" class="coolassist-button">Send</button>
+    </form>
+    <button id="clear-chat" class="coolassist-button">Clear Chat</button>
+</div>
     </div>
 </div>

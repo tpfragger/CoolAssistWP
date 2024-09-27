@@ -9,3 +9,124 @@
 .coolassist-settings-page .regular-text {
     width: 25em;
 }
+
+/* Chat History Styles */
+#chat-history-filter {
+    margin-bottom: 20px;
+}
+
+#chat-history-filter input,
+#chat-history-filter button {
+    margin-right: 10px;
+    padding: 5px 10px;
+}
+
+#chat-history-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+    table-layout: fixed;
+}
+
+#chat-history-table th,
+#chat-history-table td {
+    padding: 10px;
+    border: 1px solid #ddd;
+    text-align: left;
+    vertical-align: top;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}
+
+#chat-history-table th {
+    background-color: #f2f2f2;
+    font-weight: bold;
+}
+
+#chat-history-table tr:nth-child(even) {
+    background-color: #f9f9f9;
+}
+
+#chat-history-table tr:hover {
+    background-color: #f5f5f5;
+}
+
+/* Adjust column widths */
+#chat-history-table th:nth-child(1),
+#chat-history-table td:nth-child(1) {
+    width: 15%;
+}
+
+#chat-history-table th:nth-child(2),
+#chat-history-table td:nth-child(2),
+#chat-history-table th:nth-child(3),
+#chat-history-table td:nth-child(3) {
+    width: 32.5%;
+}
+
+#chat-history-table th:nth-child(4),
+#chat-history-table td:nth-child(4) {
+    width: 20%;
+}
+
+.read-more, .read-less {
+    color: #0073aa;
+    text-decoration: none;
+    cursor: pointer;
+    display: inline-block;
+    margin-top: 5px;
+}
+
+.read-more:hover, .read-less:hover {
+    text-decoration: underline;
+}
+
+/* Responsive table */
+@media screen and (max-width: 782px) {
+    #chat-history-table {
+        font-size: 14px;
+    }
+
+    #chat-history-table th,
+    #chat-history-table td {
+        padding: 5px;
+    }
+
+    #chat-history-table th:nth-child(1),
+    #chat-history-table td:nth-child(1) {
+        width: 20%;
+    }
+
+    #chat-history-table th:nth-child(2),
+    #chat-history-table td:nth-child(2),
+    #chat-history-table th:nth-child(3),
+    #chat-history-table td:nth-child(3) {
+        width: 30%;
+    }
+
+    #chat-history-table th:nth-child(4),
+    #chat-history-table td:nth-child(4) {
+        width: 20%;
+    }
+}
+
+/* Filter form styles */
+#chat-history-filter input[type="text"],
+#chat-history-filter input[type="date"] {
+    width: 200px;
+    padding: 5px;
+    margin-right: 10px;
+}
+
+#chat-history-filter button {
+    background-color: #0073aa;
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+#chat-history-filter button:hover {
+    background-color: #005177;
+}

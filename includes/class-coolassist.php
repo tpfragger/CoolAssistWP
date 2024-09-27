@@ -23,6 +23,7 @@ class CoolAssist {
         add_action('wp_ajax_nopriv_coolassist_login', array($this, 'ajax_login'));
         add_action('wp_ajax_coolassist_get_model_numbers', array($this, 'ajax_get_model_numbers'));
         add_action('wp_ajax_nopriv_coolassist_get_model_numbers', array($this, 'ajax_get_model_numbers'));
+        add_action('wp_ajax_get_chat_history', array($this, 'get_chat_history'));
         add_shortcode('coolassist_page', array($this, 'coolassist_page_shortcode'));
     }
 
@@ -225,33 +226,85 @@ class CoolAssist {
     }
 
     public function render_chat_history_tab() {
-        global $wpdb;
-        $table_name = $wpdb->prefix . 'coolassist_chat_history';
-        $chat_history = $wpdb->get_results("SELECT * FROM $table_name ORDER BY timestamp DESC LIMIT 100");
-        ?>
-        <h3>Recent Chat History</h3>
-        <table class="wp-list-table widefat fixed striped">
-            <thead>
-                <tr>
-                    <th>User ID</th>
-                    <th>Sender</th>
-                    <th>Message</th>
-                    <th>Timestamp</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php foreach ($chat_history as $entry): ?>
-                    <tr>
-                        <td><?php echo esc_html($entry->user_id); ?></td>
-                        <td><?php echo esc_html($entry->sender); ?></td>
-                        <td><?php echo wp_kses_post($entry->message); ?></td>
-                        <td><?php echo esc_html($entry->timestamp); ?></td>
-                    </tr>
-                <?php endforeach; ?>
-            </tbody>
-        </table>
-        <?php
-    }
+    ?>
+    <h3>Chat History</h3>
+    <form id="chat-history-filter">
+        <input type="text" id="username-filter" placeholder="Filter by username">
+        <input type="date" id="date-filter" placeholder="Filter by date">
+        <button type="submit">Filter</button>
+    </form>
+
+    <table id="chat-history-table" class="wp-list-table widefat fixed striped">
+        <thead>
+            <tr>
+                <th>Username</th>
+                <th>User Message</th>
+                <th>AI Response</th>
+                <th>Timestamp (EST)</th>
+            </tr>
+        </thead>
+        <tbody>
+        </tbody>
+    </table>
+
+    <script>
+    jQuery(document).ready(function($) {
+        function loadChatHistory(username = '', date = '') {
+            $.ajax({
+                url: ajaxurl,
+                type: 'POST',
+                data: {
+                    action: 'get_chat_history',
+                    username: username,
+                    date: date,
+                    nonce: '<?php echo wp_create_nonce('get_chat_history_nonce'); ?>'
+                },
+                success: function(response) {
+                    if (response.success) {
+                        var tbody = $('#chat-history-table tbody');
+                        tbody.empty();
+                        $.each(response.data, function(index, row) {
+                            var aiResponse = row.ai_response.length > 100 ? 
+                                row.ai_response.substring(0, 100) + '... <a href="#" class="read-more" data-full-text="' + row.ai_response + '">Read More</a>' : 
+                                row.ai_response;
+                            var tr = $('<tr>');
+                            tr.append($('<td>').text(row.username));
+                            tr.append($('<td>').text(row.user_message));
+                            tr.append($('<td>').html(aiResponse));
+                            tr.append($('<td>').text(row.timestamp));
+                            tbody.append(tr);
+                        });
+                    }
+                }
+            });
+        }
+
+        loadChatHistory();
+
+        $('#chat-history-filter').on('submit', function(e) {
+            e.preventDefault();
+            var username = $('#username-filter').val();
+            var date = $('#date-filter').val();
+            loadChatHistory(username, date);
+        });
+
+        $(document).on('click', '.read-more', function(e) {
+            e.preventDefault();
+            var cell = $(this).parent();
+            var fullText = $(this).data('full-text');
+            cell.html(fullText + ' <a href="#" class="read-less" data-short-text="' + cell.text().substring(0, 100) + '">Read Less</a>');
+        });
+
+        $(document).on('click', '.read-less', function(e) {
+            e.preventDefault();
+            var cell = $(this).parent();
+            var shortText = $(this).data('short-text');
+            cell.html(shortText + '... <a href="#" class="read-more" data-full-text="' + cell.text() + '">Read More</a>');
+        });
+    });
+    </script>
+    <?php
+}
 
     public function register_settings() {
         register_setting('coolassist_general_settings', 'coolassist_claude_api_key', array(
@@ -479,17 +532,38 @@ public function handle_image_upload() {
         );
     }
 
-    public function get_chat_history($user_id) {
+    public function get_chat_history() {
+        check_ajax_referer('get_chat_history_nonce', 'nonce');
+
         global $wpdb;
         $table_name = $wpdb->prefix . 'coolassist_chat_history';
-        
-        $chat_history = $wpdb->get_results($wpdb->prepare(
-            "SELECT * FROM $table_name WHERE user_id = %d ORDER BY timestamp ASC",
-            $user_id
-        ));
+        $users_table = $wpdb->prefix . 'coolassist_users';
 
-        return $chat_history;
+        $username = isset($_POST['username']) ? sanitize_text_field($_POST['username']) : '';
+        $date = isset($_POST['date']) ? sanitize_text_field($_POST['date']) : '';
+
+        $query = "SELECT u.username, ch1.message as user_message, ch2.message as ai_response, 
+                  DATE_FORMAT(CONVERT_TZ(ch1.timestamp, '+00:00', '-05:00'), '%Y-%m-%d %H:%i:%s') as timestamp
+                  FROM $table_name ch1
+                  JOIN $users_table u ON ch1.user_id = u.id
+                  LEFT JOIN $table_name ch2 ON ch1.id = ch2.id - 1 AND ch1.user_id = ch2.user_id
+                  WHERE ch1.sender = 'user'";
+
+        if (!empty($username)) {
+            $query .= $wpdb->prepare(" AND u.username LIKE %s", '%' . $wpdb->esc_like($username) . '%');
+        }
+
+        if (!empty($date)) {
+            $query .= $wpdb->prepare(" AND DATE(CONVERT_TZ(ch1.timestamp, '+00:00', '-05:00')) = %s", $date);
+        }
+
+        $query .= " ORDER BY ch1.timestamp DESC LIMIT 100";
+
+        $results = $wpdb->get_results($query);
+
+        wp_send_json_success($results);
     }
+
 
     public function coolassist_page_shortcode() {
         ob_start();

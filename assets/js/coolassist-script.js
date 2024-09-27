@@ -19,12 +19,6 @@ jQuery(document).ready(function($) {
         }
     });
 
-    // Predefined question buttons
-    $('.predefined-question').on('click', function() {
-        var question = $(this).text();
-        sendMessage(question);
-    });
-
     // Image upload handling
     $('#image-upload').on('change', function(e) {
         if (isProcessing) return;
@@ -37,30 +31,6 @@ jQuery(document).ready(function($) {
                 sendMessage('', e.target.result);
             }
             reader.readAsDataURL(file);
-        }
-    });
-
-    // Quick action buttons handling
-    $('.action-button').on('click', function() {
-        if (isProcessing) return;
-
-        var action = $(this).data('action');
-        var message = '';
-        
-        switch(action) {
-            case 'common-issues':
-                message = 'What are the 5 most common issues with this AC unit?';
-                break;
-            case 'maintenance-tips':
-                message = 'Provide maintenance tips for this AC unit.';
-                break;
-            case 'troubleshooting':
-                message = 'Give me a troubleshooting guide for this AC unit.';
-                break;
-        }
-        
-        if (message) {
-            sendMessage(message);
         }
     });
 
@@ -129,6 +99,21 @@ jQuery(document).ready(function($) {
         });
     }
 
+    function displayRAGButtons(options) {
+        $('#rag-buttons').empty();
+        if (options && options.length > 0) {
+            options.forEach(function(option) {
+                var button = $('<button></button>')
+                    .addClass('rag-button')
+                    .text(option)
+                    .on('click', function() {
+                        sendMessage(option);
+                    });
+                $('#rag-buttons').append(button);
+            });
+        }
+    }
+
     function displayMessage(sender, message) {
         var messageHtml = '<div class="chat-message ' + (sender === 'User' ? 'user-message' : 'ai-message') + '">' +
                           '<strong>' + sender + ':</strong> ' + message + '</div>';
@@ -138,17 +123,13 @@ jQuery(document).ready(function($) {
     }
 
     function formatAIResponse(message) {
-        // Split the message into paragraphs
         var paragraphs = message.split('\n\n');
-        
-        // Format each paragraph
         var formattedParagraphs = paragraphs.map(function(paragraph) {
-            // Check if the paragraph is a list
             if (paragraph.includes('\n- ')) {
                 var listItems = paragraph.split('\n- ');
                 var listHtml = '<ul>';
                 listItems.forEach(function(item, index) {
-                    if (index > 0) { // Skip the first item as it's usually not a list item
+                    if (index > 0) {
                         listHtml += '<li>' + item + '</li>';
                     }
                 });
@@ -162,22 +143,6 @@ jQuery(document).ready(function($) {
         return formattedParagraphs.join('');
     }
 
-    function displayRAGButtons(options) {
-        if (options && options.length > 0) {
-            var buttonsHtml = '<div class="rag-buttons">';
-            options.forEach(function(option) {
-                buttonsHtml += '<button class="rag-button coolassist-button">' + option + '</button>';
-            });
-            buttonsHtml += '</div>';
-            $('#chat-messages').append(buttonsHtml);
-            $('#chat-messages').scrollTop($('#chat-messages')[0].scrollHeight);
-        }
-    }
-
-    $(document).on('click', '.rag-button', function() {
-        var question = $(this).text();
-        sendMessage(question);
-    });
 
     function showTypingIndicator() {
         $('#typing-indicator').show();
@@ -188,22 +153,12 @@ jQuery(document).ready(function($) {
     }
 
     function disableInputs() {
-        $('#user-message, #chat-form button, #image-upload, .action-button, .predefined-question').prop('disabled', true);
+        $('#user-message, #chat-form button, #image-upload').prop('disabled', true);
     }
 
     function enableInputs() {
-        $('#user-message, #chat-form button, #image-upload, .action-button, .predefined-question').prop('disabled', false);
+        $('#user-message, #chat-form button, #image-upload').prop('disabled', false);
     }
-
-    // Clear chat functionality
-    $('#clear-chat').on('click', function() {
-        $('#chat-messages').empty();
-        $('#model-number-select').val('').trigger('change');
-        $('#image-upload').val('');
-        $('#image-preview').attr('src', '').hide();
-        sessionStorage.removeItem('chatHistory');
-        displayWelcomeMessage();
-    });
 
     // Model number selection
     $('#model-number-select').on('change', function() {
@@ -212,10 +167,6 @@ jQuery(document).ready(function($) {
             displayModelSelection(selectedModel);
         }
     });
-
-    function displayWelcomeMessage() {
-        displayMessage('AI', 'Welcome to CoolAssist! How can I help you with your AC unit today?');
-    }
 
     function displayModelSelection(modelNumber) {
         displayMessage('System', 'Selected AC Model: ' + modelNumber);
@@ -235,6 +186,10 @@ jQuery(document).ready(function($) {
         }
     }
 
+    function displayWelcomeMessage() {
+        displayMessage('AI', 'Welcome to CoolAssist! How can I help you with your AC unit today?');
+    }
+
     // Load chat history on page load
     loadChatHistory();
 
@@ -251,7 +206,6 @@ jQuery(document).ready(function($) {
             data: formData,
             dataType: 'json',
             success: function(response) {
-                console.log('Login response:', response);
                 $('#login-loading').hide();
                 if (response.success) {
                     $('#login-message').html('<p class="success">' + response.data.message + '</p>');
@@ -263,7 +217,6 @@ jQuery(document).ready(function($) {
                 }
             },
             error: function(xhr, status, error) {
-                console.error('Login error:', status, error);
                 $('#login-loading').hide();
                 $('#login-message').html('<p class="error">Login error: ' + error + '</p>');
             }

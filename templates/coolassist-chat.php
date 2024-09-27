@@ -11,18 +11,7 @@
                 </select>
             </div>
             <div id="chat-messages"></div>
-            <div id="predefined-questions">
-                <button class="predefined-question">Green light is flashing</button>
-                <button class="predefined-question">How to check fault codes</button>
-                <button class="predefined-question">Unit is not cooling</button>
-                <button class="predefined-question">Unit is not heating</button>
-                <button class="predefined-question">Unit is not operating</button>
-                <button class="predefined-question">Unit leaks water</button>
-                <button class="predefined-question">Unit makes strange sound</button>
-                <button class="predefined-question">Remote control issues</button>
-                <button class="predefined-question">Bad odor from unit</button>
-                <button class="predefined-question">Request general service</button>
-            </div>
+            <div id="rag-buttons"></div>
             <div id="typing-indicator" style="display: none;">AI is typing...</div>
             <form id="chat-form">
                 <input type="file" id="image-upload" name="image" accept="image/*" style="display: none;">

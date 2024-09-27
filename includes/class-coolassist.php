@@ -313,68 +313,71 @@ class CoolAssist {
     }
 
     public function handle_chat() {
-        check_ajax_referer('coolassist-nonce', 'nonce');
+    check_ajax_referer('coolassist-nonce', 'nonce');
 
-        $message = isset($_POST['message']) ? sanitize_text_field($_POST['message']) : '';
-        $model_number = isset($_POST['model_number']) ? sanitize_text_field($_POST['model_number']) : '';
+    $message = isset($_POST['message']) ? sanitize_text_field($_POST['message']) : '';
+    $model_number = isset($_POST['model_number']) ? sanitize_text_field($_POST['model_number']) : '';
 
-        $image_url = '';
-        if (isset($_FILES['image']) && !empty($_FILES['image']['tmp_name'])) {
-            $image_url = $this->handle_image_upload($_FILES['image']);
-        }
-
-        if (empty($message) && empty($image_url)) {
-            wp_send_json_error('Please provide a message or upload an image.');
-            return;
-        }
-
-        try {
-            $coolassist_user = new CoolAssist_User();
-            $user_id = $coolassist_user->get_current_user_id();
-            
-            // Store user message and/or image
-            if (!empty($message)) {
-                $this->store_chat_history($user_id, 'user', $message);
-            }
-            if (!empty($image_url)) {
-                $this->store_chat_history($user_id, 'user', '<img src="' . $image_url . '" alt="Uploaded Image" style="max-width: 100%; height: auto;">');
-            }
-            
-            // Get relevant manual content
-            $manual_content = $this->get_manual_content($model_number);
-            
-            // Prepare prompt for Claude API
-            $prompt = "You are an AI assistant specialized in AC and HVAC repairs. ";
-            if (!empty($image_url)) {
-                $prompt .= "An image of an AC unit has been uploaded. Please analyze it and provide relevant information. ";
-            }
-            $prompt .= "User query: " . $message;
-            if (!empty($manual_content)) {
-                $prompt .= "\n\nRelevant AC manual information: " . $manual_content;
-            }
-            
-            // Generate AI response
-            $response = $this->call_claude_api($prompt, $image_url);
-            
-            if (isset($response['content'][0]['text'])) {
-                $ai_response = $response['content'][0]['text'];
-                
-                // Store AI response
-                $this->store_chat_history($user_id, 'ai', $ai_response);
-                
-                wp_send_json_success(array(
-                    'message' => $ai_response,
-                    'image_url' => $image_url
-                ));
-            } else {
-                error_log('CoolAssist Error: Invalid response structure from call_claude_api');
-                wp_send_json_error('Failed to get a valid response from the AI service');
-            }
-        } catch (Exception $e) {
-            error_log('CoolAssist Error: ' . $e->getMessage());
-            wp_send_json_error('An error occurred while processing your request: ' . $e->getMessage());
-        }
+    $image_url = '';
+    if (isset($_FILES['image']) && !empty($_FILES['image']['tmp_name'])) {
+        $image_url = $this->handle_image_upload($_FILES['image']);
     }
+
+    if (empty($message) && empty($image_url)) {
+        wp_send_json_error('Please provide a message or upload an image.');
+        return;
+    }
+
+    try {
+        $coolassist_user = new CoolAssist_User();
+        $user_id = $coolassist_user->get_current_user_id();
+        
+        // Store user message and/or image
+        if (!empty($message)) {
+            $this->store_chat_history($user_id, 'user', $message);
+        }
+        if (!empty($image_url)) {
+            $this->store_chat_history($user_id, 'user', '<img src="' . $image_url . '" alt="Uploaded Image" style="max-width: 100%; height: auto;">');
+        }
+        
+        // Get relevant manual content
+        $manual_content = $this->get_manual_content($model_number);
+        
+        // Prepare prompt for Claude API
+        $prompt = "You are an AI assistant specialized in AC and HVAC repairs. ";
+        if (!empty($image_url)) {
+            $prompt .= "An image of an AC unit has been uploaded. Please analyze it and provide relevant information. ";
+        }
+        $prompt .= "User query: " . $message;
+        if (!empty($manual_content)) {
+            $prompt .= "\n\nRelevant AC manual information: " . $manual_content;
+        }
+        $prompt .= "\n\nPlease provide a response along with 3-5 relevant follow-up questions or actions as RAG options.";
+        
+        // Generate AI response
+        $response = $this->call_claude_api($prompt, $image_url);
+        
+        if (isset($response['content'][0]['text']) && isset($response['rag_options'])) {
+            $ai_response = $response['content'][0]['text'];
+            $rag_options = $response['rag_options'];
+            
+            // Store AI response
+            $this->store_chat_history($user_id, 'ai', $ai_response);
+            
+            wp_send_json_success(array(
+                'message' => $ai_response,
+                'image_url' => $image_url,
+                'rag_options' => $rag_options
+            ));
+        } else {
+            error_log('CoolAssist Error: Invalid response structure from call_claude_api');
+            wp_send_json_error('Failed to get a valid response from the AI service');
+        }
+    } catch (Exception $e) {
+        error_log('CoolAssist Error: ' . $e->getMessage());
+        wp_send_json_error('An error occurred while processing your request: ' . $e->getMessage());
+    }
+}
 
     private function handle_image_upload($file) {
         $upload_dir = wp_upload_dir();
@@ -389,72 +392,79 @@ class CoolAssist {
     }
 
     private function call_claude_api($prompt, $image_url = '') {
-        $url = 'https://api.anthropic.com/v1/messages';
-        $headers = array(
-            'Content-Type' => 'application/json',
-            'x-api-key' => $this->api_key,
-            'anthropic-version' => '2023-06-01'
-        );
+    $url = 'https://api.anthropic.com/v1/messages';
+    $headers = array(
+        'Content-Type' => 'application/json',
+        'x-api-key' => $this->api_key,
+        'anthropic-version' => '2023-06-01'
+    );
 
-        $body = array(
-            'model' => 'claude-3-opus-20240229',
-            'max_tokens' => 1000,
-            'messages' => array(
-                array('role' => 'user', 'content' => array())
+    $body = array(
+        'model' => 'claude-3-opus-20240229',
+        'max_tokens' => 1000,
+        'messages' => array(
+            array('role' => 'user', 'content' => array())
+        )
+    );
+
+    // Add text content
+    $body['messages'][0]['content'][] = array('type' => 'text', 'text' => $prompt);
+
+    // Add image content if available
+    if (!empty($image_url)) {
+        $image_data = base64_encode(file_get_contents($image_url));
+        $body['messages'][0]['content'][] = array(
+            'type' => 'image',
+            'source' => array(
+                'type' => 'base64',
+                'media_type' => 'image/jpeg',
+                'data' => $image_data
             )
         );
-
-        // Add text content
-        $body['messages'][0]['content'][] = array('type' => 'text', 'text' => $prompt);
-
-        // Add image content if available
-        if (!empty($image_url)) {
-            $image_data = base64_encode(file_get_contents($image_url));
-            $body['messages'][0]['content'][] = array(
-                'type' => 'image',
-                'source' => array(
-                    'type' => 'base64',
-                    'media_type' => 'image/jpeg',
-                    'data' => $image_data
-                )
-            );
-        }
-
-        $args = array(
-            'headers' => $headers,
-            'body'    => wp_json_encode($body),
-            'method'  => 'POST',
-            'timeout' => 60,
-        );
-
-        $response = wp_remote_post($url, $args);
-
-        if (is_wp_error($response)) {
-            error_log('Claude API Error: ' . $response->get_error_message());
-            return $this->generate_error_response("Unable to connect to the AI service. Please try again later.");
-        }
-
-        $response_code = wp_remote_retrieve_response_code($response);
-        $response_body = wp_remote_retrieve_body($response);
-
-        if ($response_code !== 200) {
-            error_log('Claude API Error: Unexpected response code ' . $response_code);
-            return $this->generate_error_response("Received an unexpected response from the AI service. Please try again.");
-        }
-
-        $body = json_decode($response_body, true);
-        
-        if (isset($body['content'][0]['text'])) {
-            return array(
-                'content' => array(
-                    array('text' => $body['content'][0]['text'])
-                )
-            );
-        } else {
-            error_log('Unexpected Claude API response: ' . print_r($response_body, true));
-            return $this->generate_error_response("Unexpected response from AI service. Please try again.");
-        }
     }
+
+    $args = array(
+        'headers' => $headers,
+        'body'    => wp_json_encode($body),
+        'method'  => 'POST',
+        'timeout' => 60,
+    );
+
+    $response = wp_remote_post($url, $args);
+
+    if (is_wp_error($response)) {
+        error_log('Claude API Error: ' . $response->get_error_message());
+        return $this->generate_error_response("Unable to connect to the AI service. Please try again later.");
+    }
+
+    $response_code = wp_remote_retrieve_response_code($response);
+    $response_body = wp_remote_retrieve_body($response);
+
+    if ($response_code !== 200) {
+        error_log('Claude API Error: Unexpected response code ' . $response_code);
+        return $this->generate_error_response("Received an unexpected response from the AI service. Please try again.");
+    }
+
+    $body = json_decode($response_body, true);
+    
+    if (isset($body['content'][0]['text'])) {
+        $ai_response = $body['content'][0]['text'];
+        
+        // Extract RAG options from the AI response
+        $rag_options = $this->extract_rag_options($ai_response);
+        
+        return array(
+            'content' => array(
+                array('text' => $ai_response)
+            ),
+            'rag_options' => $rag_options
+        );
+    } else {
+        error_log('Unexpected Claude API response: ' . print_r($response_body, true));
+        return $this->generate_error_response("Unexpected response from AI service. Please try again.");
+    }
+}
+
 
     private function get_manual_content($model_number) {
         $coolassist_manual = new CoolAssist_Manual();
@@ -516,6 +526,28 @@ class CoolAssist {
 
         wp_send_json_success($results);
     }
+
+    private function extract_rag_options($ai_response) {
+    $rag_options = array();
+    $lines = explode("\n", $ai_response);
+    $rag_section_started = false;
+
+    foreach ($lines as $line) {
+        if (strpos($line, 'RAG options:') !== false) {
+            $rag_section_started = true;
+            continue;
+        }
+
+        if ($rag_section_started) {
+            $option = trim(str_replace(array('-', '*'), '', $line));
+            if (!empty($option)) {
+                $rag_options[] = $option;
+            }
+        }
+    }
+
+    return array_slice($rag_options, 0, 5); // Limit to 5 options
+}
 
     public function coolassist_page_shortcode() {
         ob_start();

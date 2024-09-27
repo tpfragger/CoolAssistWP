@@ -19,6 +19,12 @@ jQuery(document).ready(function($) {
         }
     });
 
+    // Predefined question buttons
+    $('.predefined-question').on('click', function() {
+        var question = $(this).text();
+        sendMessage(question);
+    });
+
     // Image upload handling
     $('#image-upload').on('change', function(e) {
         if (isProcessing) return;
@@ -27,6 +33,7 @@ jQuery(document).ready(function($) {
         if (file) {
             var reader = new FileReader();
             reader.onload = function(e) {
+                $('#image-preview').attr('src', e.target.result).show();
                 sendMessage('', e.target.result);
             }
             reader.readAsDataURL(file);
@@ -101,7 +108,7 @@ jQuery(document).ready(function($) {
                     if (message.trim() !== '') {
                         displayMessage('User', message);
                     }
-                    displayMessage('AI', response.data.message);
+                    displayMessage('AI', formatAIResponse(response.data.message));
                     displayRAGButtons(response.data.rag_options);
                 } else {
                     displayMessage('AI', 'Error: ' + (response.data || 'Unable to process your request. Please try again.'));
@@ -130,6 +137,31 @@ jQuery(document).ready(function($) {
         saveChatHistory();
     }
 
+    function formatAIResponse(message) {
+        // Split the message into paragraphs
+        var paragraphs = message.split('\n\n');
+        
+        // Format each paragraph
+        var formattedParagraphs = paragraphs.map(function(paragraph) {
+            // Check if the paragraph is a list
+            if (paragraph.includes('\n- ')) {
+                var listItems = paragraph.split('\n- ');
+                var listHtml = '<ul>';
+                listItems.forEach(function(item, index) {
+                    if (index > 0) { // Skip the first item as it's usually not a list item
+                        listHtml += '<li>' + item + '</li>';
+                    }
+                });
+                listHtml += '</ul>';
+                return listHtml;
+            } else {
+                return '<p>' + paragraph + '</p>';
+            }
+        });
+
+        return formattedParagraphs.join('');
+    }
+
     function displayRAGButtons(options) {
         if (options && options.length > 0) {
             var buttonsHtml = '<div class="rag-buttons">';
@@ -156,11 +188,11 @@ jQuery(document).ready(function($) {
     }
 
     function disableInputs() {
-        $('#user-message, #chat-form button, #image-upload, .action-button').prop('disabled', true);
+        $('#user-message, #chat-form button, #image-upload, .action-button, .predefined-question').prop('disabled', true);
     }
 
     function enableInputs() {
-        $('#user-message, #chat-form button, #image-upload, .action-button').prop('disabled', false);
+        $('#user-message, #chat-form button, #image-upload, .action-button, .predefined-question').prop('disabled', false);
     }
 
     // Clear chat functionality
@@ -236,17 +268,6 @@ jQuery(document).ready(function($) {
                 $('#login-message').html('<p class="error">Login error: ' + error + '</p>');
             }
         });
-    });
-
-    // Handle file input change for image preview
-    $('#image-upload').on('change', function() {
-        if (this.files && this.files[0]) {
-            var reader = new FileReader();
-            reader.onload = function(e) {
-                $('#image-preview').attr('src', e.target.result).show();
-            }
-            reader.readAsDataURL(this.files[0]);
-        }
     });
 
     // Logout functionality

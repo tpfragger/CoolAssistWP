@@ -8,8 +8,8 @@ class CoolAssist_User {
     }
 
     public function get_current_user_id() {
-    return isset($_SESSION['coolassist_user_id']) ? $_SESSION['coolassist_user_id'] : null;
-}
+        return isset($_SESSION['coolassist_user_id']) ? $_SESSION['coolassist_user_id'] : null;
+    }
 
     public function create_user($first_name, $last_name, $password) {
         global $wpdb;
@@ -79,15 +79,12 @@ class CoolAssist_User {
     }
 
     public function is_logged_in() {
-    return isset($_SESSION['coolassist_user_id']) && $_SESSION['coolassist_user_id'] > 0;
-}
-
-public function login($user_id) {
-    if (!session_id()) {
-        session_start();
+        return isset($_SESSION['coolassist_user_id']) && $_SESSION['coolassist_user_id'] > 0;
     }
-    $_SESSION['coolassist_user_id'] = $user_id;
-}
+
+    public function login($user_id) {
+        $_SESSION['coolassist_user_id'] = $user_id;
+    }
 
     public function logout() {
         unset($_SESSION['coolassist_user_id']);

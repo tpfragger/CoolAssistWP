@@ -327,7 +327,7 @@ public function handle_image_upload() {
         }
     }
 
-    private function call_claude_api($message, $model_number = '') {
+     private function call_claude_api($message, $model_number = '') {
         if (empty($this->api_key)) {
             error_log('Claude API Error: API key is not set');
             return $this->generate_error_response("API key is not set. Please configure the API key in the plugin settings.");
@@ -363,7 +363,7 @@ public function handle_image_upload() {
             'timeout' => 60,
         );
 
-        $response = wp_remote_request($url, $args);
+        $response = wp_remote_post($url, $args);
 
         if (is_wp_error($response)) {
             error_log('Claude API Error: ' . $response->get_error_message());
@@ -391,6 +391,7 @@ public function handle_image_upload() {
             return $this->generate_error_response("Unexpected response from AI service. Please try again.");
         }
     }
+
 
     private function analyze_image_with_claude($image_path) {
         $url = 'https://api.anthropic.com/v1/messages';
@@ -476,6 +477,18 @@ public function handle_image_upload() {
             ),
             array('%d', '%s', '%s', '%s')
         );
+    }
+
+    public function get_chat_history($user_id) {
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'coolassist_chat_history';
+        
+        $chat_history = $wpdb->get_results($wpdb->prepare(
+            "SELECT * FROM $table_name WHERE user_id = %d ORDER BY timestamp ASC",
+            $user_id
+        ));
+
+        return $chat_history;
     }
 
     public function coolassist_page_shortcode() {

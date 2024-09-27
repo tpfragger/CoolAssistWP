@@ -23,40 +23,14 @@ jQuery(document).ready(function($) {
     $('#image-upload').on('change', function(e) {
         if (isProcessing) return;
 
-        isProcessing = true;
-        showTypingIndicator();
-        disableInputs();
-
-        var formData = new FormData();
-        formData.append('action', 'coolassist_upload_image');
-        formData.append('nonce', coolassist_ajax.nonce);
-        formData.append('image', e.target.files[0]);
-        
-        $.ajax({
-            url: coolassist_ajax.ajax_url,
-            type: 'POST',
-            data: formData,
-            contentType: false,
-            processData: false,
-            success: function(response) {
-                if (response.success) {
-                    displayMessage('User', '<img src="' + response.data.image_url + '" alt="Uploaded Image" style="max-width: 100%; height: auto;">');
-                    displayMessage('AI', response.data.content[0].text);
-                    displayFollowUpQuestions(response.data.follow_up_questions);
-                } else {
-                    displayMessage('AI', 'Error: ' + (response.data || 'Unable to process your request. Please try again.'));
-                }
-            },
-            error: function(xhr, status, error) {
-                console.error('AJAX Error:', status, error);
-                displayMessage('AI', 'Error: Unable to communicate with the server. Please try again later.');
-            },
-            complete: function() {
-                isProcessing = false;
-                hideTypingIndicator();
-                enableInputs();
+        var file = e.target.files[0];
+        if (file) {
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                sendMessage('', e.target.result);
             }
-        });
+            reader.readAsDataURL(file);
+        }
     });
 
     // Quick action buttons handling
@@ -89,33 +63,46 @@ jQuery(document).ready(function($) {
         if (isProcessing) return;
 
         var message = $('#user-message').val();
-        if (message.trim() !== '') {
-            sendMessage(message);
-            $('#user-message').val('');
+        var imageFile = $('#image-upload')[0].files[0];
+
+        if (message.trim() === '' && !imageFile) {
+            alert('Please enter a message or upload an image.');
+            return;
         }
+
+        sendMessage(message, imageFile);
     });
 
-    function sendMessage(message) {
-        displayMessage('User', message);
+    function sendMessage(message, imageFile = null) {
         isProcessing = true;
         showTypingIndicator();
         disableInputs();
-        
-        var modelNumber = $('#model-number-select').val();
-        
+
+        var formData = new FormData();
+        formData.append('action', 'coolassist_chat');
+        formData.append('nonce', coolassist_ajax.nonce);
+        formData.append('message', message);
+        formData.append('model_number', $('#model-number-select').val());
+        if (imageFile) {
+            formData.append('image', imageFile);
+        }
+
         $.ajax({
             url: coolassist_ajax.ajax_url,
             type: 'POST',
-            data: {
-                action: 'coolassist_chat',
-                nonce: coolassist_ajax.nonce,
-                message: message,
-                model_number: modelNumber
-            },
+            data: formData,
+            processData: false,
+            contentType: false,
             success: function(response) {
                 if (response.success) {
+                    if (imageFile) {
+                        displayMessage('User', '<img src="' + response.data.image_url + '" alt="Uploaded Image" style="max-width: 100%; height: auto;">');
+                    }
+                    if (message.trim() !== '') {
+                        displayMessage('User', message);
+                    }
                     displayMessage('AI', response.data.message);
-                    displayFollowUpQuestions(response.data.follow_up_questions);
+                    displayRAGButtons(response.data.rag_options);
                 } else {
                     displayMessage('AI', 'Error: ' + (response.data || 'Unable to process your request. Please try again.'));
                 }
@@ -128,6 +115,9 @@ jQuery(document).ready(function($) {
                 isProcessing = false;
                 hideTypingIndicator();
                 enableInputs();
+                $('#user-message').val('');
+                $('#image-upload').val('');
+                $('#image-preview').attr('src', '').hide();
             }
         });
     }
@@ -140,17 +130,19 @@ jQuery(document).ready(function($) {
         saveChatHistory();
     }
 
-    function displayFollowUpQuestions(questions) {
-        if (questions && questions.length > 0) {
-            var $questionContainer = $('<div class="follow-up-questions"></div>');
-            questions.forEach(function(question) {
-                $questionContainer.append('<button class="follow-up-question">' + question + '</button>');
+    function displayRAGButtons(options) {
+        if (options && options.length > 0) {
+            var buttonsHtml = '<div class="rag-buttons">';
+            options.forEach(function(option) {
+                buttonsHtml += '<button class="rag-button coolassist-button">' + option + '</button>';
             });
-            $('#chat-messages').append($questionContainer);
+            buttonsHtml += '</div>';
+            $('#chat-messages').append(buttonsHtml);
+            $('#chat-messages').scrollTop($('#chat-messages')[0].scrollHeight);
         }
     }
 
-    $(document).on('click', '.follow-up-question', function() {
+    $(document).on('click', '.rag-button', function() {
         var question = $(this).text();
         sendMessage(question);
     });
@@ -164,18 +156,19 @@ jQuery(document).ready(function($) {
     }
 
     function disableInputs() {
-        $('#user-message, #chat-form button, #image-upload, #image-upload-form button, .action-button').prop('disabled', true);
+        $('#user-message, #chat-form button, #image-upload, .action-button').prop('disabled', true);
     }
 
     function enableInputs() {
-        $('#user-message, #chat-form button, #image-upload, #image-upload-form button, .action-button').prop('disabled', false);
+        $('#user-message, #chat-form button, #image-upload, .action-button').prop('disabled', false);
     }
 
     // Clear chat functionality
     $('#clear-chat').on('click', function() {
         $('#chat-messages').empty();
         $('#model-number-select').val('').trigger('change');
-        $('#image-upload-form')[0].reset();
+        $('#image-upload').val('');
+        $('#image-preview').attr('src', '').hide();
         sessionStorage.removeItem('chatHistory');
         displayWelcomeMessage();
     });
@@ -231,7 +224,7 @@ jQuery(document).ready(function($) {
                 if (response.success) {
                     $('#login-message').html('<p class="success">' + response.data.message + '</p>');
                     setTimeout(function() {
-                        window.location.reload();
+                        window.location.href = response.data.redirect;
                     }, 1000);
                 } else {
                     $('#login-message').html('<p class="error">' + response.data + '</p>');
@@ -245,7 +238,7 @@ jQuery(document).ready(function($) {
         });
     });
 
-    // Handle file input change
+    // Handle file input change for image preview
     $('#image-upload').on('change', function() {
         if (this.files && this.files[0]) {
             var reader = new FileReader();
@@ -256,62 +249,25 @@ jQuery(document).ready(function($) {
         }
     });
 
-    // Handle chat form submission with image
-    $('#chat-form').on('submit', function(e) {
+    // Logout functionality
+    $('#coolassist-logout').on('click', function(e) {
         e.preventDefault();
-        if (isProcessing) return;
-
-        var message = $('#user-message').val();
-        var imageFile = $('#image-upload')[0].files[0];
-
-        if (message.trim() === '' && !imageFile) {
-            alert('Please enter a message or upload an image.');
-            return;
-        }
-
-        isProcessing = true;
-        showTypingIndicator();
-        disableInputs();
-
-        var formData = new FormData();
-        formData.append('action', 'coolassist_chat');
-        formData.append('nonce', coolassist_ajax.nonce);
-        formData.append('message', message);
-        formData.append('model_number', $('#model-number-select').val());
-        if (imageFile) {
-            formData.append('image', imageFile);
-        }
-
         $.ajax({
             url: coolassist_ajax.ajax_url,
             type: 'POST',
-            data: formData,
-            processData: false,
-            contentType: false,
+            data: {
+                action: 'coolassist_logout',
+                nonce: coolassist_ajax.nonce
+            },
             success: function(response) {
                 if (response.success) {
-                    if (imageFile) {
-                        displayMessage('User', '<img src="' + response.data.image_url + '" alt="Uploaded Image" style="max-width: 100%; height: auto;">');
-                    }
-                    if (message.trim() !== '') {
-                        displayMessage('User', message);
-                    }
-                    displayMessage('AI', response.data.message);
+                    window.location.reload();
                 } else {
-                    displayMessage('AI', 'Error: ' + (response.data || 'Unable to process your request. Please try again.'));
+                    alert('Logout failed. Please try again.');
                 }
             },
-            error: function(xhr, status, error) {
-                console.error('AJAX Error:', status, error);
-                displayMessage('AI', 'Error: Unable to communicate with the server. Please try again later.');
-            },
-            complete: function() {
-                isProcessing = false;
-                hideTypingIndicator();
-                enableInputs();
-                $('#user-message').val('');
-                $('#image-upload').val('');
-                $('#image-preview').attr('src', '').hide();
+            error: function() {
+                alert('An error occurred during logout. Please try again.');
             }
         });
     });

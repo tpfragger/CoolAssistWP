@@ -1,5 +1,5 @@
 .coolassist-container {
-    max-width: 1200px;
+    max-width: 800px;
     margin: 0 auto;
     padding: 20px;
     font-family: Arial, sans-serif;
@@ -22,104 +22,57 @@
     color: #333;
 }
 
-.coolassist-main {
-    display: flex;
-    gap: 20px;
-}
-
-.coolassist-sidebar {
-    flex: 0 0 300px;
-}
-
-.chat-interface {
-    flex: 1;
-}
-
-.image-upload-section,
-.model-selection,
-.quick-actions,
 .chat-interface {
     background-color: #f5f5f5;
     border-radius: 5px;
-    padding: 15px;
+    padding: 20px;
+}
+
+.model-selection {
     margin-bottom: 20px;
 }
 
-h2 {
-    font-size: 18px;
-    margin-top: 0;
-    margin-bottom: 15px;
-}
-
-.file-input-wrapper {
-    position: relative;
-    overflow: hidden;
-    display: inline-block;
-}
-
-.file-input-wrapper input[type=file] {
-    font-size: 100px;
-    position: absolute;
-    left: 0;
-    top: 0;
-    opacity: 0;
-}
-
-.file-input-wrapper label {
-    display: inline-block;
-    padding: 8px 20px;
-    background-color: #007bff;
-    color: white;
-    font-size: 14px;
-    transition: all 0.3s;
-    cursor: pointer;
-    border-radius: 4px;
-}
-
-.file-input-wrapper:hover label {
-    background-color: #0056b3;
-}
-
-select, input[type="text"] {
+#model-number-select {
     width: 100%;
-    padding: 8px;
-    margin-bottom: 10px;
+    padding: 10px;
+    font-size: 16px;
     border: 1px solid #ccc;
     border-radius: 4px;
-}
-
-.coolassist-button {
-    background-color: #28a745;
-    color: white;
-    border: none;
-    padding: 8px 15px;
-    text-align: center;
-    text-decoration: none;
-    display: inline-block;
-    font-size: 14px;
-    margin: 4px 2px;
-    cursor: pointer;
-    border-radius: 4px;
-    transition: background-color 0.3s;
-}
-
-.coolassist-button:hover {
-    background-color: #218838;
-}
-
-.action-button {
-    display: block;
-    width: 100%;
-    margin-bottom: 10px;
 }
 
 #chat-messages {
-    height: 300px;
+    height: 400px;
     overflow-y: auto;
     border: 1px solid #ccc;
-    padding: 10px;
-    margin-bottom: 10px;
+    padding: 15px;
+    margin-bottom: 20px;
     background-color: white;
+    font-size: 16px;
+    line-height: 1.5;
+}
+
+#predefined-questions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.predefined-question,
+.rag-button {
+    background-color: #007bff;
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    font-size: 14px;
+    cursor: pointer;
+    border-radius: 20px;
+    transition: background-color 0.3s;
+}
+
+.predefined-question:hover,
+.rag-button:hover {
+    background-color: #0056b3;
 }
 
 #chat-form {
@@ -129,18 +82,55 @@ select, input[type="text"] {
 
 #user-message {
     flex-grow: 1;
+    padding: 10px;
+    font-size: 16px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
 }
 
-#clear-chat {
-    margin-top: 10px;
+.coolassist-button {
+    background-color: #28a745;
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    font-size: 16px;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: background-color 0.3s;
 }
 
-@media (max-width: 768px) {
-    .coolassist-main {
-        flex-direction: column;
-    }
+.coolassist-button:hover {
+    background-color: #218838;
+}
 
-    .coolassist-sidebar {
-        flex: 0 0 100%;
-    }
+.image-upload-button {
+    background-color: #6c757d;
+    padding: 10px 12px;
+}
+
+.image-upload-button:hover {
+    background-color: #5a6268;
+}
+
+.chat-message {
+    margin-bottom: 15px;
+    padding: 10px;
+    border-radius: 4px;
+    max-width: 80%;
+}
+
+.user-message {
+    background-color: #e6f3ff;
+    align-self: flex-end;
+}
+
+.ai-message {
+    background-color: #f0f0f0;
+    align-self: flex-start;
+}
+
+#typing-indicator {
+    font-style: italic;
+    color: #666;
+    margin-bottom: 10px;
 }

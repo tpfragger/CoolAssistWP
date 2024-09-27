@@ -20,17 +20,17 @@ jQuery(document).ready(function($) {
     });
 
     // Image upload handling
-    $('#image-upload-form').on('submit', function(e) {
-        e.preventDefault();
+    $('#image-upload').on('change', function(e) {
         if (isProcessing) return;
 
         isProcessing = true;
         showTypingIndicator();
         disableInputs();
 
-        var formData = new FormData(this);
+        var formData = new FormData();
         formData.append('action', 'coolassist_upload_image');
         formData.append('nonce', coolassist_ajax.nonce);
+        formData.append('image', e.target.files[0]);
         
         $.ajax({
             url: coolassist_ajax.ajax_url,
@@ -42,6 +42,7 @@ jQuery(document).ready(function($) {
                 if (response.success) {
                     displayMessage('User', '<img src="' + response.data.image_url + '" alt="Uploaded Image" style="max-width: 100%; height: auto;">');
                     displayMessage('AI', response.data.content[0].text);
+                    displayFollowUpQuestions(response.data.follow_up_questions);
                 } else {
                     displayMessage('AI', 'Error: ' + (response.data || 'Unable to process your request. Please try again.'));
                 }
@@ -113,7 +114,8 @@ jQuery(document).ready(function($) {
             },
             success: function(response) {
                 if (response.success) {
-                    displayMessage('AI', response.data.content[0].text);
+                    displayMessage('AI', response.data.message);
+                    displayFollowUpQuestions(response.data.follow_up_questions);
                 } else {
                     displayMessage('AI', 'Error: ' + (response.data || 'Unable to process your request. Please try again.'));
                 }
@@ -137,6 +139,21 @@ jQuery(document).ready(function($) {
         $('#chat-messages').scrollTop($('#chat-messages')[0].scrollHeight);
         saveChatHistory();
     }
+
+    function displayFollowUpQuestions(questions) {
+        if (questions && questions.length > 0) {
+            var $questionContainer = $('<div class="follow-up-questions"></div>');
+            questions.forEach(function(question) {
+                $questionContainer.append('<button class="follow-up-question">' + question + '</button>');
+            });
+            $('#chat-messages').append($questionContainer);
+        }
+    }
+
+    $(document).on('click', '.follow-up-question', function() {
+        var question = $(this).text();
+        sendMessage(question);
+    });
 
     function showTypingIndicator() {
         $('#typing-indicator').show();
@@ -197,34 +214,105 @@ jQuery(document).ready(function($) {
     loadChatHistory();
 
     // Login form handling
-$('#coolassist-login-form').on('submit', function(e) {
-    e.preventDefault();
-    $('#login-loading').show();
-    var formData = $(this).serialize();
-    formData += '&action=coolassist_login&nonce=' + coolassist_ajax.nonce;
+    $('#coolassist-login-form').on('submit', function(e) {
+        e.preventDefault();
+        $('#login-loading').show();
+        var formData = $(this).serialize();
+        formData += '&action=coolassist_login&nonce=' + coolassist_ajax.nonce;
 
-    $.ajax({
-        url: coolassist_ajax.ajax_url,
-        type: 'POST',
-        data: formData,
-        dataType: 'json',
-        success: function(response) {
-            console.log('Login response:', response);
-            $('#login-loading').hide();
-            if (response.success) {
-                $('#login-message').html('<p class="success">' + response.data.message + '</p>');
-                setTimeout(function() {
-                    window.location.reload();
-                }, 1000);
-            } else {
-                $('#login-message').html('<p class="error">' + response.data + '</p>');
+        $.ajax({
+            url: coolassist_ajax.ajax_url,
+            type: 'POST',
+            data: formData,
+            dataType: 'json',
+            success: function(response) {
+                console.log('Login response:', response);
+                $('#login-loading').hide();
+                if (response.success) {
+                    $('#login-message').html('<p class="success">' + response.data.message + '</p>');
+                    setTimeout(function() {
+                        window.location.reload();
+                    }, 1000);
+                } else {
+                    $('#login-message').html('<p class="error">' + response.data + '</p>');
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error('Login error:', status, error);
+                $('#login-loading').hide();
+                $('#login-message').html('<p class="error">Login error: ' + error + '</p>');
             }
-        },
-        error: function(xhr, status, error) {
-            console.error('Login error:', status, error);
-            $('#login-loading').hide();
-            $('#login-message').html('<p class="error">Login error: ' + error + '</p>');
+        });
+    });
+
+    // Handle file input change
+    $('#image-upload').on('change', function() {
+        if (this.files && this.files[0]) {
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                $('#image-preview').attr('src', e.target.result).show();
+            }
+            reader.readAsDataURL(this.files[0]);
         }
     });
-});
+
+    // Handle chat form submission with image
+    $('#chat-form').on('submit', function(e) {
+        e.preventDefault();
+        if (isProcessing) return;
+
+        var message = $('#user-message').val();
+        var imageFile = $('#image-upload')[0].files[0];
+
+        if (message.trim() === '' && !imageFile) {
+            alert('Please enter a message or upload an image.');
+            return;
+        }
+
+        isProcessing = true;
+        showTypingIndicator();
+        disableInputs();
+
+        var formData = new FormData();
+        formData.append('action', 'coolassist_chat');
+        formData.append('nonce', coolassist_ajax.nonce);
+        formData.append('message', message);
+        formData.append('model_number', $('#model-number-select').val());
+        if (imageFile) {
+            formData.append('image', imageFile);
+        }
+
+        $.ajax({
+            url: coolassist_ajax.ajax_url,
+            type: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            success: function(response) {
+                if (response.success) {
+                    if (imageFile) {
+                        displayMessage('User', '<img src="' + response.data.image_url + '" alt="Uploaded Image" style="max-width: 100%; height: auto;">');
+                    }
+                    if (message.trim() !== '') {
+                        displayMessage('User', message);
+                    }
+                    displayMessage('AI', response.data.message);
+                } else {
+                    displayMessage('AI', 'Error: ' + (response.data || 'Unable to process your request. Please try again.'));
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error('AJAX Error:', status, error);
+                displayMessage('AI', 'Error: Unable to communicate with the server. Please try again later.');
+            },
+            complete: function() {
+                isProcessing = false;
+                hideTypingIndicator();
+                enableInputs();
+                $('#user-message').val('');
+                $('#image-upload').val('');
+                $('#image-preview').attr('src', '').hide();
+            }
+        });
+    });
 });

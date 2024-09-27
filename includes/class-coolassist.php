@@ -226,85 +226,85 @@ class CoolAssist {
     }
 
     public function render_chat_history_tab() {
-    ?>
-    <h3>Chat History</h3>
-    <form id="chat-history-filter">
-        <input type="text" id="username-filter" placeholder="Filter by username">
-        <input type="date" id="date-filter" placeholder="Filter by date">
-        <button type="submit">Filter</button>
-    </form>
+        ?>
+        <h3>Chat History</h3>
+        <form id="chat-history-filter">
+            <input type="text" id="username-filter" placeholder="Filter by username">
+            <input type="date" id="date-filter" placeholder="Filter by date">
+            <button type="submit">Filter</button>
+        </form>
 
-    <table id="chat-history-table" class="wp-list-table widefat fixed striped">
-        <thead>
-            <tr>
-                <th>Username</th>
-                <th>User Message</th>
-                <th>AI Response</th>
-                <th>Timestamp (EST)</th>
-            </tr>
-        </thead>
-        <tbody>
-        </tbody>
-    </table>
+        <table id="chat-history-table" class="wp-list-table widefat fixed striped">
+            <thead>
+                <tr>
+                    <th>Username</th>
+                    <th>User Message</th>
+                    <th>AI Response</th>
+                    <th>Timestamp (EST)</th>
+                </tr>
+            </thead>
+            <tbody>
+            </tbody>
+        </table>
 
-    <script>
-    jQuery(document).ready(function($) {
-        function loadChatHistory(username = '', date = '') {
-            $.ajax({
-                url: ajaxurl,
-                type: 'POST',
-                data: {
-                    action: 'get_chat_history',
-                    username: username,
-                    date: date,
-                    nonce: '<?php echo wp_create_nonce('get_chat_history_nonce'); ?>'
-                },
-                success: function(response) {
-                    if (response.success) {
-                        var tbody = $('#chat-history-table tbody');
-                        tbody.empty();
-                        $.each(response.data, function(index, row) {
-                            var aiResponse = row.ai_response.length > 100 ? 
-                                row.ai_response.substring(0, 100) + '... <a href="#" class="read-more" data-full-text="' + row.ai_response + '">Read More</a>' : 
-                                row.ai_response;
-                            var tr = $('<tr>');
-                            tr.append($('<td>').text(row.username));
-                            tr.append($('<td>').text(row.user_message));
-                            tr.append($('<td>').html(aiResponse));
-                            tr.append($('<td>').text(row.timestamp));
-                            tbody.append(tr);
-                        });
+        <script>
+        jQuery(document).ready(function($) {
+            function loadChatHistory(username = '', date = '') {
+                $.ajax({
+                    url: ajaxurl,
+                    type: 'POST',
+                    data: {
+                        action: 'get_chat_history',
+                        username: username,
+                        date: date,
+                        nonce: '<?php echo wp_create_nonce('get_chat_history_nonce'); ?>'
+                    },
+                    success: function(response) {
+                        if (response.success) {
+                            var tbody = $('#chat-history-table tbody');
+                            tbody.empty();
+                            $.each(response.data, function(index, row) {
+                                var aiResponse = row.ai_response.length > 100 ? 
+                                    row.ai_response.substring(0, 100) + '... <a href="#" class="read-more" data-full-text="' + row.ai_response + '">Read More</a>' : 
+                                    row.ai_response;
+                                var tr = $('<tr>');
+                                tr.append($('<td>').text(row.username));
+                                tr.append($('<td>').text(row.user_message));
+                                tr.append($('<td>').html(aiResponse));
+                                tr.append($('<td>').text(row.timestamp));
+                                tbody.append(tr);
+                            });
+                        }
                     }
-                }
+                });
+            }
+
+            loadChatHistory();
+
+            $('#chat-history-filter').on('submit', function(e) {
+                e.preventDefault();
+                var username = $('#username-filter').val();
+                var date = $('#date-filter').val();
+                loadChatHistory(username, date);
             });
-        }
 
-        loadChatHistory();
+            $(document).on('click', '.read-more', function(e) {
+                e.preventDefault();
+                var cell = $(this).parent();
+                var fullText = $(this).data('full-text');
+                cell.html(fullText + ' <a href="#" class="read-less" data-short-text="' + cell.text().substring(0, 100) + '">Read Less</a>');
+            });
 
-        $('#chat-history-filter').on('submit', function(e) {
-            e.preventDefault();
-            var username = $('#username-filter').val();
-            var date = $('#date-filter').val();
-            loadChatHistory(username, date);
+            $(document).on('click', '.read-less', function(e) {
+                e.preventDefault();
+                var cell = $(this).parent();
+                var shortText = $(this).data('short-text');
+                cell.html(shortText + '... <a href="#" class="read-more" data-full-text="' + cell.text() + '">Read More</a>');
+});
         });
-
-        $(document).on('click', '.read-more', function(e) {
-            e.preventDefault();
-            var cell = $(this).parent();
-            var fullText = $(this).data('full-text');
-            cell.html(fullText + ' <a href="#" class="read-less" data-short-text="' + cell.text().substring(0, 100) + '">Read Less</a>');
-        });
-
-        $(document).on('click', '.read-less', function(e) {
-            e.preventDefault();
-            var cell = $(this).parent();
-            var shortText = $(this).data('short-text');
-            cell.html(shortText + '... <a href="#" class="read-more" data-full-text="' + cell.text() + '">Read More</a>');
-        });
-    });
-    </script>
-    <?php
-}
+        </script>
+        <?php
+    }
 
     public function register_settings() {
         register_setting('coolassist_general_settings', 'coolassist_claude_api_key', array(
@@ -318,8 +318,13 @@ class CoolAssist {
         $message = isset($_POST['message']) ? sanitize_text_field($_POST['message']) : '';
         $model_number = isset($_POST['model_number']) ? sanitize_text_field($_POST['model_number']) : '';
 
-        if (empty($message)) {
-            wp_send_json_error('Message cannot be empty');
+        $image_url = '';
+        if (isset($_FILES['image']) && !empty($_FILES['image']['tmp_name'])) {
+            $image_url = $this->handle_image_upload($_FILES['image']);
+        }
+
+        if (empty($message) && empty($image_url)) {
+            wp_send_json_error('Please provide a message or upload an image.');
             return;
         }
 
@@ -327,15 +332,40 @@ class CoolAssist {
             $coolassist_user = new CoolAssist_User();
             $user_id = $coolassist_user->get_current_user_id();
             
-            // Store user message
-            $this->store_chat_history($user_id, 'user', $message);
+            // Store user message and/or image
+            if (!empty($message)) {
+                $this->store_chat_history($user_id, 'user', $message);
+            }
+            if (!empty($image_url)) {
+                $this->store_chat_history($user_id, 'user', '<img src="' . $image_url . '" alt="Uploaded Image" style="max-width: 100%; height: auto;">');
+            }
             
-            $response = $this->call_claude_api($message, $model_number);
+            // Get relevant manual content
+            $manual_content = $this->get_manual_content($model_number);
+            
+            // Prepare prompt for Claude API
+            $prompt = "You are an AI assistant specialized in AC and HVAC repairs. ";
+            if (!empty($image_url)) {
+                $prompt .= "An image of an AC unit has been uploaded. Please analyze it and provide relevant information. ";
+            }
+            $prompt .= "User query: " . $message;
+            if (!empty($manual_content)) {
+                $prompt .= "\n\nRelevant AC manual information: " . $manual_content;
+            }
+            
+            // Generate AI response
+            $response = $this->call_claude_api($prompt, $image_url);
+            
             if (isset($response['content'][0]['text'])) {
-                // Store AI response
-                $this->store_chat_history($user_id, 'ai', $response['content'][0]['text']);
+                $ai_response = $response['content'][0]['text'];
                 
-                wp_send_json_success($response);
+                // Store AI response
+                $this->store_chat_history($user_id, 'ai', $ai_response);
+                
+                wp_send_json_success(array(
+                    'message' => $ai_response,
+                    'image_url' => $image_url
+                ));
             } else {
                 error_log('CoolAssist Error: Invalid response structure from call_claude_api');
                 wp_send_json_error('Failed to get a valid response from the AI service');
@@ -346,46 +376,19 @@ class CoolAssist {
         }
     }
 
-public function handle_image_upload() {
-        check_ajax_referer('coolassist-nonce', 'nonce');
+    private function handle_image_upload($file) {
+        $upload_dir = wp_upload_dir();
+        $file_name = wp_unique_filename($upload_dir['path'], $file['name']);
+        $file_path = $upload_dir['path'] . '/' . $file_name;
 
-        if (!isset($_FILES['image'])) {
-            wp_send_json_error('No image was uploaded.');
+        if (move_uploaded_file($file['tmp_name'], $file_path)) {
+            return $upload_dir['url'] . '/' . $file_name;
         }
 
-        $uploaded_file = $_FILES['image'];
-        $upload_overrides = array('test_form' => false);
-        $movefile = wp_handle_upload($uploaded_file, $upload_overrides);
-
-        if ($movefile && !isset($movefile['error'])) {
-            $image_path = $movefile['file'];
-            $image_url = $movefile['url'];
-            $response = $this->analyze_image_with_claude($image_path);
-
-            $coolassist_user = new CoolAssist_User();
-            $user_id = $coolassist_user->get_current_user_id();
-
-            // Store image upload in chat history
-            $this->store_chat_history($user_id, 'user', '<img src="' . $image_url . '" alt="Uploaded Image" style="max-width: 100%; height: auto;">');
-
-            if (isset($response['content'][0]['text'])) {
-                $ai_response = $response['content'][0]['text'];
-                // Store AI response
-                $this->store_chat_history($user_id, 'ai', $ai_response);
-            }
-
-            wp_send_json_success(array('image_url' => $image_url, 'content' => $response['content']));
-        } else {
-            wp_send_json_error($movefile['error']);
-        }
+        return '';
     }
 
-     private function call_claude_api($message, $model_number = '') {
-        if (empty($this->api_key)) {
-            error_log('Claude API Error: API key is not set');
-            return $this->generate_error_response("API key is not set. Please configure the API key in the plugin settings.");
-        }
-
+    private function call_claude_api($prompt, $image_url = '') {
         $url = 'https://api.anthropic.com/v1/messages';
         $headers = array(
             'Content-Type' => 'application/json',
@@ -393,21 +396,29 @@ public function handle_image_upload() {
             'anthropic-version' => '2023-06-01'
         );
 
-        $system_prompt = "You are an AI assistant specialized in AC and HVAC repairs. Only provide information related to AC units, HVAC systems, and their repair and maintenance. If asked about unrelated topics, politely redirect the conversation back to AC and HVAC matters.";
-        
-        $user_content = $system_prompt . "\n\nUser query: " . $message;
-        if (!empty($model_number)) {
-            $manual_content = $this->get_manual_content($model_number);
-            $user_content .= "\n\nRelevant AC manual information for model $model_number: " . $manual_content;
-        }
-
         $body = array(
             'model' => 'claude-3-opus-20240229',
             'max_tokens' => 1000,
             'messages' => array(
-                array('role' => 'user', 'content' => $user_content)
+                array('role' => 'user', 'content' => array())
             )
         );
+
+        // Add text content
+        $body['messages'][0]['content'][] = array('type' => 'text', 'text' => $prompt);
+
+        // Add image content if available
+        if (!empty($image_url)) {
+            $image_data = base64_encode(file_get_contents($image_url));
+            $body['messages'][0]['content'][] = array(
+                'type' => 'image',
+                'source' => array(
+                    'type' => 'base64',
+                    'media_type' => 'image/jpeg',
+                    'data' => $image_data
+                )
+            );
+        }
 
         $args = array(
             'headers' => $headers,
@@ -442,64 +453,6 @@ public function handle_image_upload() {
         } else {
             error_log('Unexpected Claude API response: ' . print_r($response_body, true));
             return $this->generate_error_response("Unexpected response from AI service. Please try again.");
-        }
-    }
-
-
-    private function analyze_image_with_claude($image_path) {
-        $url = 'https://api.anthropic.com/v1/messages';
-        $headers = array(
-            'Content-Type' => 'application/json',
-            'x-api-key' => $this->api_key,
-            'anthropic-version' => '2023-06-01'
-        );
-
-        $image_data = base64_encode(file_get_contents($image_path));
-        $body = array(
-            'model' => 'claude-3-opus-20240229',
-            'max_tokens' => 1000,
-            'messages' => array(
-                array(
-                    'role' => 'user',
-                    'content' => array(
-                        array('type' => 'image', 'source' => array('type' => 'base64', 'media_type' => 'image/jpeg', 'data' => $image_data)),
-                        array('type' => 'text', 'text' => "Analyze this image of an AC unit. Identify the model number if visible, and describe any visible issues or potential problems. Focus only on AC-related information.")
-                    )
-                )
-            )
-        );
-
-        $args = array(
-            'headers' => $headers,
-            'body'    => wp_json_encode($body),
-            'method'  => 'POST',
-            'timeout' => 60,
-        );
-
-        $response = wp_remote_request($url, $args);
-
-        if (is_wp_error($response)) {
-            error_log('Claude API Image Analysis Error: ' . $response->get_error_message());
-            return $this->generate_error_response("Error analyzing image: Unable to connect to the AI service. Please try again later.");
-        }
-
-        $response_code = wp_remote_retrieve_response_code($response);
-        $response_body = wp_remote_retrieve_body($response);
-
-        if ($response_code !== 200) {
-            error_log('Claude API Image Analysis Error: Unexpected response code ' . $response_code);
-            return $this->generate_error_response("Received an unexpected response from the AI service during image analysis. Please try again.");
-        }
-
-        $body = json_decode($response_body, true);
-        if (isset($body['content'][0]['text'])) {
-            return array(
-                'content' => array(
-                    array('text' => $body['content'][0]['text'])
-                )
-            );
-        } else {
-            return $this->generate_error_response("Unexpected response from AI service during image analysis. Please try again.");
         }
     }
 
@@ -563,7 +516,6 @@ public function handle_image_upload() {
 
         wp_send_json_success($results);
     }
-
 
     public function coolassist_page_shortcode() {
         ob_start();
@@ -676,24 +628,24 @@ public function handle_image_upload() {
     }
 
     public function ajax_login() {
-    check_ajax_referer('coolassist-nonce', 'nonce');
+        check_ajax_referer('coolassist-nonce', 'nonce');
 
-    $username = sanitize_user($_POST['username']);
-    $password = $_POST['password'];
+        $username = sanitize_user($_POST['username']);
+        $password = $_POST['password'];
 
-    $coolassist_user = new CoolAssist_User();
-    $user = $coolassist_user->authenticate($username, $password);
+        $coolassist_user = new CoolAssist_User();
+        $user = $coolassist_user->authenticate($username, $password);
 
-    if ($user) {
-        if (!session_id()) {
-            session_start();
+        if ($user) {
+            if (!session_id()) {
+                session_start();
+            }
+            $_SESSION['coolassist_user_id'] = $user->id;
+            wp_send_json_success(array('message' => 'Login successful', 'redirect' => home_url('/coolassist')));
+        } else {
+            wp_send_json_error('Invalid username or password');
         }
-        $_SESSION['coolassist_user_id'] = $user->id;
-        wp_send_json_success(array('message' => 'Login successful', 'redirect' => home_url('/coolassist')));
-    } else {
-        wp_send_json_error('Invalid username or password');
     }
-}
 
     public function ajax_get_model_numbers() {
         check_ajax_referer('coolassist-nonce', 'nonce');

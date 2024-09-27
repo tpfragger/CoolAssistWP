@@ -602,21 +602,24 @@ public function handle_image_upload() {
     }
 
     public function ajax_login() {
-        check_ajax_referer('coolassist-nonce', 'nonce');
+    check_ajax_referer('coolassist-nonce', 'nonce');
 
-        $username = sanitize_user($_POST['username']);
-        $password = $_POST['password'];
+    $username = sanitize_user($_POST['username']);
+    $password = $_POST['password'];
 
-        $coolassist_user = new CoolAssist_User();
-        $user = $coolassist_user->authenticate($username, $password);
+    $coolassist_user = new CoolAssist_User();
+    $user = $coolassist_user->authenticate($username, $password);
 
-        if ($user) {
-            $_SESSION['coolassist_user_id'] = $user->id;
-            wp_send_json_success(array('message' => 'Login successful', 'redirect' => home_url('/coolassist')));
-        } else {
-            wp_send_json_error('Invalid username or password');
+    if ($user) {
+        if (!session_id()) {
+            session_start();
         }
+        $_SESSION['coolassist_user_id'] = $user->id;
+        wp_send_json_success(array('message' => 'Login successful', 'redirect' => home_url('/coolassist')));
+    } else {
+        wp_send_json_error('Invalid username or password');
     }
+}
 
     public function ajax_get_model_numbers() {
         check_ajax_referer('coolassist-nonce', 'nonce');

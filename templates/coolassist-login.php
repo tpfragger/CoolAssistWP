@@ -14,4 +14,5 @@
             <input type="submit" value="Log In" class="coolassist-button">
         </p>
     </form>
+    <div id="login-message"></div>
 </div>

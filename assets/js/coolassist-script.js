@@ -196,26 +196,26 @@ jQuery(document).ready(function($) {
     // Load chat history on page load
     loadChatHistory();
 
-    // Login form handling
-$('#coolassist-login-form').on('submit', function(e) {
-    e.preventDefault();
-    var formData = $(this).serialize();
-    formData += '&action=coolassist_login';
+      // Update the login form handling
+    $('#coolassist-login-form').on('submit', function(e) {
+        e.preventDefault();
+        var formData = $(this).serialize();
+        formData += '&action=coolassist_login&nonce=' + coolassist_ajax.nonce;
 
-    $.ajax({
-        url: coolassist_ajax.ajax_url,
-        type: 'POST',
-        data: formData,
-        success: function(response) {
-            if (response.success) {
-                window.location.href = response.data.redirect;
-            } else {
-                alert('Login failed: ' + response.data);
+        $.ajax({
+            url: coolassist_ajax.ajax_url,
+            type: 'POST',
+            data: formData,
+            success: function(response) {
+                if (response.success) {
+                    window.location.href = response.data.redirect;
+                } else {
+                    $('#login-message').html('<p class="error">' + response.data + '</p>');
+                }
+            },
+            error: function(xhr, status, error) {
+                $('#login-message').html('<p class="error">Login error: ' + error + '</p>');
             }
-        },
-        error: function(xhr, status, error) {
-            alert('Login error: ' + error);
-        }
+        });
     });
-});
 });

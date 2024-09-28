@@ -250,4 +250,6 @@ jQuery(document).ready(function($) {
     function displayWelcomeMessage() {
         displayMessage('AI', 'Welcome to CoolAssist! How can I help you with your AC unit today?');
     }
+    console.log(coolassist_ajax); // This should log the object if it's correctly localized
+
 });

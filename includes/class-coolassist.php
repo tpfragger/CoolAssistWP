@@ -27,13 +27,13 @@ class CoolAssist {
     }
 
     public function enqueue_scripts() {
-        wp_enqueue_style('coolassist-style', COOLASSIST_PLUGIN_URL . 'assets/css/coolassist-style.css', array(), '1.0.4');
-        wp_enqueue_script('coolassist-script', COOLASSIST_PLUGIN_URL . 'assets/js/coolassist-script.js', array('jquery'), '1.0.4', true);
-        wp_localize_script('coolassist-script', 'coolassist_ajax', array(
-            'ajax_url' => admin_url('admin-ajax.php'),
-            'nonce' => wp_create_nonce('coolassist-nonce')
-        ));
-    }
+    wp_enqueue_style('coolassist-style', COOLASSIST_PLUGIN_URL . 'assets/css/coolassist-style.css', array(), '1.0.4');
+    wp_enqueue_script('coolassist-script', COOLASSIST_PLUGIN_URL . 'assets/js/coolassist-script.js', array('jquery'), '1.0.4', true);
+    wp_localize_script('coolassist-script', 'coolassist_ajax', array(
+        'ajax_url' => admin_url('admin-ajax.php'),
+        'nonce' => wp_create_nonce('coolassist-nonce')
+    ));
+}
 
     public function enqueue_admin_scripts($hook) {
         if ('toplevel_page_coolassist-settings' !== $hook) {

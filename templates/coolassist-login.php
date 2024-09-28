@@ -37,7 +37,7 @@ jQuery(document).ready(function($) {
                 if (response.success) {
                     $('#login-message').html('<p class="success">' + response.data.message + '</p>');
                     setTimeout(function() {
-                        window.location.reload();
+                        window.location.href = response.data.redirect;
                     }, 1000);
                 } else {
                     $('#login-message').html('<p class="error">' + response.data + '</p>');
@@ -51,4 +51,3 @@ jQuery(document).ready(function($) {
         });
     });
 });
-</script>

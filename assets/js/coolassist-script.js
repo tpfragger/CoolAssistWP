@@ -1,3 +1,6 @@
+console.log('CoolAssist script loaded');
+console.log('coolassist_ajax object:', coolassist_ajax);
+
 jQuery(document).ready(function($) {
     var isProcessing = false;
 
@@ -32,6 +35,7 @@ jQuery(document).ready(function($) {
             data: formData,
             dataType: 'json',
             success: function(response) {
+                console.log('Login response:', response);
                 $('#login-loading').hide();
                 if (response.success) {
                     $('#login-message').html('<p class="success">' + response.data.message + '</p>');
@@ -43,6 +47,7 @@ jQuery(document).ready(function($) {
                 }
             },
             error: function(xhr, status, error) {
+                console.error('Login error:', status, error);
                 $('#login-loading').hide();
                 $('#login-message').html('<p class="error">Login error: ' + error + '</p>');
             }

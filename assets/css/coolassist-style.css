@@ -51,28 +51,6 @@
     line-height: 1.5;
 }
 
-#rag-buttons {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-    margin-bottom: 20px;
-}
-
-.rag-button {
-    background-color: #007bff;
-    color: white;
-    border: none;
-    padding: 10px 15px;
-    font-size: 14px;
-    cursor: pointer;
-    border-radius: 20px;
-    transition: background-color 0.3s;
-}
-
-.rag-button:hover {
-    background-color: #0056b3;
-}
-
 #chat-form {
     display: flex;
     gap: 10px;
@@ -131,4 +109,103 @@
     font-style: italic;
     color: #666;
     margin-bottom: 10px;
+}
+
+.chat-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.chat-button {
+    background-color: #007bff;
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    font-size: 14px;
+    cursor: pointer;
+    border-radius: 20px;
+    transition: background-color 0.3s;
+}
+
+.chat-button:hover {
+    background-color: #0056b3;
+}
+
+.manual-image {
+    margin-top: 10px;
+    text-align: center;
+}
+
+.manual-image img {
+    max-width: 100%;
+    height: auto;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+.manual-image p {
+    margin-top: 5px;
+    font-style: italic;
+    color: #666;
+}
+
+/* Login form styles */
+#coolassist-login-form {
+    max-width: 300px;
+    margin: 0 auto;
+    padding: 20px;
+    background-color: #f5f5f5;
+    border-radius: 5px;
+}
+
+#coolassist-login-form input[type="text"],
+#coolassist-login-form input[type="password"] {
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+#coolassist-login-form input[type="submit"] {
+    width: 100%;
+    padding: 10px;
+    background-color: #28a745;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+#coolassist-login-form input[type="submit"]:hover {
+    background-color: #218838;
+}
+
+#login-message {
+    margin-top: 10px;
+    text-align: center;
+}
+
+#login-message .error {
+    color: #dc3545;
+}
+
+#login-message .success {
+    color: #28a745;
+}
+
+#login-loading {
+    text-align: center;
+    margin-top: 10px;
+    display: none;
+}
+
+#coolassist-logout {
+    background-color: #dc3545;
+}
+
+#coolassist-logout:hover {
+    background-color: #c82333;
 }

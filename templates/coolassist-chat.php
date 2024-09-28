@@ -1,7 +1,13 @@
+<?php
+if (!is_user_logged_in()) {
+    include COOLASSIST_PLUGIN_DIR . 'templates/coolassist-login.php';
+} else {
+?>
 <div class="coolassist-container">
     <div class="coolassist-header">
         <img src="<?php echo COOLASSIST_PLUGIN_URL . 'assets/images/fourstarlogo.png'; ?>" alt="FourStar Logo" class="company-logo">
         <h1>CoolAssist Chatbot</h1>
+        <button id="coolassist-logout" class="coolassist-button">Logout</button>
     </div>
     <div class="coolassist-main">
         <div class="chat-interface">
@@ -11,7 +17,6 @@
                 </select>
             </div>
             <div id="chat-messages"></div>
-            <div id="rag-buttons"></div>
             <div id="typing-indicator" style="display: none;">AI is typing...</div>
             <form id="chat-form">
                 <input type="file" id="image-upload" name="image" accept="image/*" style="display: none;">
@@ -24,3 +29,6 @@
         </div>
     </div>
 </div>
+<?php
+}
+?>

@@ -13,23 +13,23 @@ class CoolAssist {
         add_action('admin_init', array($this, 'register_settings'));
         add_action('wp_ajax_coolassist_chat', array($this, 'handle_chat'));
         add_action('wp_ajax_nopriv_coolassist_chat', array($this, 'handle_chat'));
-        add_action('wp_ajax_coolassist_upload_image', array($this, 'handle_image_upload'));
+        add_action('wp_ajax_coolassist_login', array($this, 'ajax_login'));
+        add_action('wp_ajax_nopriv_coolassist_login', array($this, 'ajax_login'));
+        add_action('wp_ajax_coolassist_logout', array($this, 'ajax_logout'));
+        add_action('wp_ajax_coolassist_get_model_numbers', array($this, 'ajax_get_model_numbers'));
+        add_action('wp_ajax_nopriv_coolassist_get_model_numbers', array($this, 'ajax_get_model_numbers'));
         add_action('wp_ajax_coolassist_create_user', array($this, 'ajax_create_user'));
         add_action('wp_ajax_coolassist_delete_user', array($this, 'ajax_delete_user'));
         add_action('wp_ajax_coolassist_reset_password', array($this, 'ajax_reset_password'));
         add_action('wp_ajax_coolassist_upload_manual', array($this, 'ajax_upload_manual'));
         add_action('wp_ajax_coolassist_delete_manual', array($this, 'ajax_delete_manual'));
-        add_action('wp_ajax_coolassist_login', array($this, 'ajax_login'));
-        add_action('wp_ajax_nopriv_coolassist_login', array($this, 'ajax_login'));
-        add_action('wp_ajax_coolassist_get_model_numbers', array($this, 'ajax_get_model_numbers'));
-        add_action('wp_ajax_nopriv_coolassist_get_model_numbers', array($this, 'ajax_get_model_numbers'));
         add_action('wp_ajax_get_chat_history', array($this, 'get_chat_history'));
         add_shortcode('coolassist_page', array($this, 'coolassist_page_shortcode'));
     }
 
     public function enqueue_scripts() {
-        wp_enqueue_style('coolassist-style', COOLASSIST_PLUGIN_URL . 'assets/css/coolassist-style.css', array(), '1.0.2');
-        wp_enqueue_script('coolassist-script', COOLASSIST_PLUGIN_URL . 'assets/js/coolassist-script.js', array('jquery'), '1.0.2', true);
+        wp_enqueue_style('coolassist-style', COOLASSIST_PLUGIN_URL . 'assets/css/coolassist-style.css', array(), '1.0.4');
+        wp_enqueue_script('coolassist-script', COOLASSIST_PLUGIN_URL . 'assets/js/coolassist-script.js', array('jquery'), '1.0.4', true);
         wp_localize_script('coolassist-script', 'coolassist_ajax', array(
             'ajax_url' => admin_url('admin-ajax.php'),
             'nonce' => wp_create_nonce('coolassist-nonce')
@@ -40,8 +40,8 @@ class CoolAssist {
         if ('toplevel_page_coolassist-settings' !== $hook) {
             return;
         }
-        wp_enqueue_style('coolassist-admin-style', COOLASSIST_PLUGIN_URL . 'assets/css/coolassist-admin-style.css', array(), '1.0.1');
-        wp_enqueue_script('coolassist-admin-script', COOLASSIST_PLUGIN_URL . 'assets/js/coolassist-admin-script.js', array('jquery'), '1.0.1', true);
+        wp_enqueue_style('coolassist-admin-style', COOLASSIST_PLUGIN_URL . 'assets/css/coolassist-admin-style.css', array(), '1.0.2');
+        wp_enqueue_script('coolassist-admin-script', COOLASSIST_PLUGIN_URL . 'assets/js/coolassist-admin-script.js', array('jquery'), '1.0.2', true);
         wp_localize_script('coolassist-admin-script', 'coolassist_ajax', array(
             'ajax_url' => admin_url('admin-ajax.php'),
             'nonce' => wp_create_nonce('coolassist-nonce')
@@ -92,10 +92,8 @@ class CoolAssist {
                         <label for="coolassist_claude_api_key">Claude API Key</label>
                     </th>
                     <td>
-                        <div class="api-key-wrapper">
-                            <input type="password" id="coolassist_claude_api_key" name="coolassist_claude_api_key" value="<?php echo esc_attr(get_option('coolassist_claude_api_key')); ?>" class="regular-text" />
-                            <button type="button" id="toggle-api-key" class="button">Show API Key</button>
-                        </div>
+                        <input type="password" id="coolassist_claude_api_key" name="coolassist_claude_api_key" value="<?php echo esc_attr(get_option('coolassist_claude_api_key')); ?>" class="regular-text">
+                        <button type="button" id="toggle-api-key" class="button">Show API Key</button>
                     </td>
                 </tr>
             </table>
@@ -240,7 +238,7 @@ class CoolAssist {
                     <th>Username</th>
                     <th>User Message</th>
                     <th>AI Response</th>
-                    <th>Timestamp (EST)</th>
+                    <th>Timestamp</th>
                 </tr>
             </thead>
             <tbody>
@@ -264,13 +262,10 @@ class CoolAssist {
                             var tbody = $('#chat-history-table tbody');
                             tbody.empty();
                             $.each(response.data, function(index, row) {
-                                var aiResponse = row.ai_response.length > 100 ? 
-                                    row.ai_response.substring(0, 100) + '... <a href="#" class="read-more" data-full-text="' + row.ai_response + '">Read More</a>' : 
-                                    row.ai_response;
                                 var tr = $('<tr>');
                                 tr.append($('<td>').text(row.username));
                                 tr.append($('<td>').text(row.user_message));
-                                tr.append($('<td>').html(aiResponse));
+                                tr.append($('<td>').text(row.ai_response));
                                 tr.append($('<td>').text(row.timestamp));
                                 tbody.append(tr);
                             });
@@ -287,20 +282,6 @@ class CoolAssist {
                 var date = $('#date-filter').val();
                 loadChatHistory(username, date);
             });
-
-            $(document).on('click', '.read-more', function(e) {
-                e.preventDefault();
-                var cell = $(this).parent();
-                var fullText = $(this).data('full-text');
-                cell.html(fullText + ' <a href="#" class="read-less" data-short-text="' + cell.text().substring(0, 100) + '">Read Less</a>');
-            });
-
-            $(document).on('click', '.read-less', function(e) {
-                e.preventDefault();
-                var cell = $(this).parent();
-                var shortText = $(this).data('short-text');
-                cell.html(shortText + '... <a href="#" class="read-more" data-full-text="' + cell.text() + '">Read More</a>');
-});
         });
         </script>
         <?php
@@ -313,73 +294,218 @@ class CoolAssist {
     }
 
     public function handle_chat() {
-    check_ajax_referer('coolassist-nonce', 'nonce');
+        check_ajax_referer('coolassist-nonce', 'nonce');
 
-    $message = isset($_POST['message']) ? sanitize_text_field($_POST['message']) : '';
-    $model_number = isset($_POST['model_number']) ? sanitize_text_field($_POST['model_number']) : '';
+        $message = isset($_POST['message']) ? sanitize_text_field($_POST['message']) : '';
+        $model_number = isset($_POST['model_number']) ? sanitize_text_field($_POST['model_number']) : '';
 
-    $image_url = '';
-    if (isset($_FILES['image']) && !empty($_FILES['image']['tmp_name'])) {
-        $image_url = $this->handle_image_upload($_FILES['image']);
+        $image_url = '';
+        if (isset($_FILES['image']) && !empty($_FILES['image']['tmp_name'])) {
+            $image_url = $this->handle_image_upload($_FILES['image']);
+        }
+
+        if (empty($message) && empty($image_url)) {
+            wp_send_json_error('Please provide a message or upload an image.');
+            return;
+        }
+
+        try {
+            // Perform RAG search
+            $rag_results = $this->perform_rag_search($message, $model_number);
+
+            // Extract relevant manual content and images
+            $manual_content = $rag_results['content'];
+            $manual_images = $rag_results['images'];
+
+            // Prepare prompt for Claude API
+            $prompt = $this->prepare_prompt($message, $manual_content, $image_url);
+
+            // Generate AI response
+            $response = $this->call_claude_api($prompt, $image_url);
+
+            if (isset($response['content'][0]['text'])) {
+                $ai_response = $response['content'][0]['text'];
+                
+                // Generate buttons based on AI response
+                $buttons = $this->generate_buttons($ai_response);
+
+                // Store chat history
+                $this->store_chat_history($message, $ai_response);
+
+                wp_send_json_success(array(
+                    'message' => $ai_response,
+                    'image_url' => $image_url,
+                    'manual_images' => $manual_images,
+                    'buttons' => $buttons
+                ));
+            } else {
+                wp_send_json_error('Failed to get a valid response from the AI service');
+            }
+        } catch (Exception $e) {
+            wp_send_json_error('An error occurred while processing your request: ' . $e->getMessage());
+        }
     }
 
-    if (empty($message) && empty($image_url)) {
-        wp_send_json_error('Please provide a message or upload an image.');
-        return;
+    private function perform_rag_search($query, $model_number) {
+        $coolassist_manual = new CoolAssist_Manual();
+        $manual = $coolassist_manual->get_manual_by_model_number($model_number);
+
+        if (!$manual) {
+            return array('content' => '', 'images' => array());
+        }
+
+        $pdf_content = $this->extract_pdf_content($manual->file_path);
+        $relevant_content = $this->search_relevant_content($pdf_content, $query);
+        $images = $this->extract_images_from_pdf($manual->file_path);
+
+        return array(
+            'content' => $relevant_content,
+            'images' => $images
+        );
     }
 
-    try {
-        $coolassist_user = new CoolAssist_User();
-        $user_id = $coolassist_user->get_current_user_id();
-        
-        // Store user message and/or image
-        if (!empty($message)) {
-            $this->store_chat_history($user_id, 'user', $message);
+    private function extract_pdf_content($pdf_path) {
+        $content = shell_exec("pdftotext '{$pdf_path}' -");
+        return $content ? $content : '';
+    }
+
+    private function search_relevant_content($content, $query) {
+        $sentences = preg_split('/(?<=[.!?])\s+/', $content);
+        $relevant_sentences = array();
+
+        foreach ($sentences as $sentence) {
+            if (stripos($sentence, $query) !== false) {
+                $relevant_sentences[] = $sentence;
+            }
         }
-        if (!empty($image_url)) {
-            $this->store_chat_history($user_id, 'user', '<img src="' . $image_url . '" alt="Uploaded Image" style="max-width: 100%; height: auto;">');
+
+        return implode(' ', array_slice($relevant_sentences, 0, 5));
+    }
+
+    private function extract_images_from_pdf($pdf_path) {
+        $images = array();
+        $output_dir = wp_upload_dir()['path'] . '/coolassist_temp_images/';
+        wp_mkdir_p($output_dir);
+
+        shell_exec("pdfimages -j '{$pdf_path}' '{$output_dir}/image'");
+
+        $image_files = glob($output_dir . 'image-*.jpg');
+
+        foreach ($image_files as $index => $image_file) {
+            $new_file_name = 'manual_image_' . $index . '.jpg';
+            $new_file_path = $output_dir . $new_file_name;
+            rename($image_file, $new_file_path);
+
+            $images[] = array(
+                'url' => wp_upload_dir()['url'] . '/coolassist_temp_images/' . $new_file_name,
+                'caption' => 'Manual Image ' . ($index + 1)
+            );
+
+            if (count($images) >= 3) {
+                break;
+            }
         }
-        
-        // Get relevant manual content
-        $manual_content = $this->get_manual_content($model_number);
-        
-        // Prepare prompt for Claude API
+
+        return $images;
+    }
+
+    private function prepare_prompt($message, $manual_content, $image_url) {
         $prompt = "You are an AI assistant specialized in AC and HVAC repairs. ";
-        if (!empty($image_url)) {
-            $prompt .= "An image of an AC unit has been uploaded. Please analyze it and provide relevant information. ";
-        }
-        $prompt .= "User query: " . $message;
+        $prompt .= "User query: $message\n\n";
+        
         if (!empty($manual_content)) {
-            $prompt .= "\n\nRelevant AC manual information: " . $manual_content;
+            $prompt .= "Relevant manual content: $manual_content\n\n";
         }
-        $prompt .= "\n\nPlease provide a response along with 3-5 relevant follow-up questions or actions as RAG options.";
         
-        // Generate AI response
-        $response = $this->call_claude_api($prompt, $image_url);
-        
-        if (isset($response['content'][0]['text']) && isset($response['rag_options'])) {
-            $ai_response = $response['content'][0]['text'];
-            $rag_options = $response['rag_options'];
-            
-            // Store AI response
-            $this->store_chat_history($user_id, 'ai', $ai_response);
-            
-            wp_send_json_success(array(
-                'message' => $ai_response,
-                'image_url' => $image_url,
-                'rag_options' => $rag_options
-            ));
-        } else {
-            error_log('CoolAssist Error: Invalid response structure from call_claude_api');
-            wp_send_json_error('Failed to get a valid response from the AI service');
+        if (!empty($image_url)) {
+            $prompt .= "An image has been uploaded. Please analyze it and provide relevant information.\n\n";
         }
-    } catch (Exception $e) {
-        error_log('CoolAssist Error: ' . $e->getMessage());
-        wp_send_json_error('An error occurred while processing your request: ' . $e->getMessage());
+        
+        $prompt .= "Please provide a helpful response to the user's query, incorporating the manual content when relevant. Also, suggest 3-5 possible follow-up questions or actions the user might want to take.";
+        
+        return $prompt;
     }
-}
 
-    private function handle_image_upload($file) {
+    private function call_claude_api($prompt, $image_url = '') {
+        $url = 'https://api.anthropic.com/v1/messages';
+        $headers = array(
+            'Content-Type' => 'application/json',
+            'x-api-key' => $this->api_key,
+            'anthropic-version' => '2023-06-01'
+        );
+
+        $body = array(
+            'model' => 'claude-3-opus-20240229',
+            'max_tokens' => 1000,
+            'messages' => array(
+                array('role' => 'user', 'content' => array())
+            )
+        );
+
+        $body['messages'][0]['content'][] = array('type' => 'text', 'text' => $prompt);
+
+        if (!empty($image_url)) {
+            $image_data = base64_encode(file_get_contents($image_url));
+            $body['messages'][0]['content'][] = array(
+                'type' => 'image',
+                'source' => array(
+                    'type' => 'base64',
+                    'media_type' => 'image/jpeg',
+                    'data' => $image_data
+                )
+            );
+        }
+
+        $args = array(
+            'headers' => $headers,
+            'body'    => wp_json_encode($body),
+            'method'  => 'POST',
+            'timeout' => 60,
+        );
+
+        $response = wp_remote_post($url, $args);
+
+        if (is_wp_error($response)) {
+            throw new Exception("Unable to connect to the AI service: " . $response->get_error_message());
+        }
+
+        $response_code = wp_remote_retrieve_response_code($response);
+        $response_body = wp_remote_retrieve_body($response);
+
+        if ($response_code !== 200) {
+            throw new Exception("Received an unexpected response from the AI service: $response_code");
+        }
+
+        return json_decode($response_body, true);
+    }
+
+    private function generate_buttons($ai_response) {
+        $buttons = array();
+        $lines = explode("\n", $ai_response);
+        $capturing = false;
+
+        foreach ($lines as $line) {
+            if (strpos($line, 'Follow-up questions:') !== false || strpos($line, 'Possible actions:') !== false) {
+                $capturing = true;
+                continue;
+            }
+
+            if ($capturing && !empty(trim($line))) {
+                $buttons[] = array(
+                    'text' => trim($line),
+                    'action' => 'send_message'
+                );
+
+                if (count($buttons) >= 5) {
+                    break;
+                }
+            }
+        }
+
+        return $buttons;
+    }
+
+    public function handle_image_upload($file) {
         $upload_dir = wp_upload_dir();
         $file_name = wp_unique_filename($upload_dir['path'], $file['name']);
         $file_path = $upload_dir['path'] . '/' . $file_name;
@@ -391,173 +517,52 @@ class CoolAssist {
         return '';
     }
 
-    private function call_claude_api($prompt, $image_url = '') {
-    $url = 'https://api.anthropic.com/v1/messages';
-    $headers = array(
-        'Content-Type' => 'application/json',
-        'x-api-key' => $this->api_key,
-        'anthropic-version' => '2023-06-01'
-    );
-
-    $body = array(
-        'model' => 'claude-3-opus-20240229',
-        'max_tokens' => 1000,
-        'messages' => array(
-            array('role' => 'user', 'content' => array())
-        )
-    );
-
-    // Add text content
-    $body['messages'][0]['content'][] = array('type' => 'text', 'text' => $prompt);
-
-    // Add image content if available
-    if (!empty($image_url)) {
-        $image_data = base64_encode(file_get_contents($image_url));
-        $body['messages'][0]['content'][] = array(
-            'type' => 'image',
-            'source' => array(
-                'type' => 'base64',
-                'media_type' => 'image/jpeg',
-                'data' => $image_data
-            )
-        );
-    }
-
-    $args = array(
-        'headers' => $headers,
-        'body'    => wp_json_encode($body),
-        'method'  => 'POST',
-        'timeout' => 60,
-    );
-
-    $response = wp_remote_post($url, $args);
-
-    if (is_wp_error($response)) {
-        error_log('Claude API Error: ' . $response->get_error_message());
-        return $this->generate_error_response("Unable to connect to the AI service. Please try again later.");
-    }
-
-    $response_code = wp_remote_retrieve_response_code($response);
-    $response_body = wp_remote_retrieve_body($response);
-
-    if ($response_code !== 200) {
-        error_log('Claude API Error: Unexpected response code ' . $response_code);
-        return $this->generate_error_response("Received an unexpected response from the AI service. Please try again.");
-    }
-
-    $body = json_decode($response_body, true);
-    
-    if (isset($body['content'][0]['text'])) {
-        $ai_response = $body['content'][0]['text'];
-        
-        // Extract RAG options from the AI response
-        $rag_options = $this->extract_rag_options($ai_response);
-        
-        return array(
-            'content' => array(
-                array('text' => $ai_response)
-            ),
-            'rag_options' => $rag_options
-        );
-    } else {
-        error_log('Unexpected Claude API response: ' . print_r($response_body, true));
-        return $this->generate_error_response("Unexpected response from AI service. Please try again.");
-    }
-}
-
-
-    private function get_manual_content($model_number) {
-        $coolassist_manual = new CoolAssist_Manual();
-        $manual = $coolassist_manual->get_manual_by_model_number($model_number);
-        if ($manual) {
-            $file_content = file_get_contents($manual->file_path);
-            if ($file_content !== false) {
-                // For simplicity, we'll return the first 1000 characters of the file
-                return substr($file_content, 0, 1000);
-            }
-        }
-        return "No specific manual content found for model number $model_number.";
-    }
-
-    private function store_chat_history($user_id, $sender, $message) {
+    private function store_chat_history($user_message, $ai_response) {
         global $wpdb;
         $table_name = $wpdb->prefix . 'coolassist_chat_history';
         
         $wpdb->insert(
             $table_name,
             array(
-                'user_id' => $user_id,
-                'sender' => $sender,
-                'message' => $message,
+                'user_id' => get_current_user_id(),
+                'user_message' => $user_message,
+                'ai_response' => $ai_response,
                 'timestamp' => current_time('mysql')
             ),
             array('%d', '%s', '%s', '%s')
         );
     }
 
-    public function get_chat_history() {
-        check_ajax_referer('get_chat_history_nonce', 'nonce');
+    public function ajax_login() {
+        check_ajax_referer('coolassist-nonce', 'nonce');
 
-        global $wpdb;
-        $table_name = $wpdb->prefix . 'coolassist_chat_history';
-        $users_table = $wpdb->prefix . 'coolassist_users';
+        $username = sanitize_user($_POST['username']);
+        $password = $_POST['password'];
 
-        $username = isset($_POST['username']) ? sanitize_text_field($_POST['username']) : '';
-        $date = isset($_POST['date']) ? sanitize_text_field($_POST['date']) : '';
+        $user = wp_authenticate($username, $password);
 
-        $query = "SELECT u.username, ch1.message as user_message, ch2.message as ai_response, 
-                  DATE_FORMAT(CONVERT_TZ(ch1.timestamp, '+00:00', '-05:00'), '%Y-%m-%d %H:%i:%s') as timestamp
-                  FROM $table_name ch1
-                  JOIN $users_table u ON ch1.user_id = u.id
-                  LEFT JOIN $table_name ch2 ON ch1.id = ch2.id - 1 AND ch1.user_id = ch2.user_id
-                  WHERE ch1.sender = 'user'";
-
-        if (!empty($username)) {
-            $query .= $wpdb->prepare(" AND u.username LIKE %s", '%' . $wpdb->esc_like($username) . '%');
-        }
-
-        if (!empty($date)) {
-            $query .= $wpdb->prepare(" AND DATE(CONVERT_TZ(ch1.timestamp, '+00:00', '-05:00')) = %s", $date);
-        }
-
-        $query .= " ORDER BY ch1.timestamp DESC LIMIT 100";
-
-        $results = $wpdb->get_results($query);
-
-        wp_send_json_success($results);
-    }
-
-    private function extract_rag_options($ai_response) {
-    $rag_options = array();
-    $lines = explode("\n", $ai_response);
-    $rag_section_started = false;
-
-    foreach ($lines as $line) {
-        if (strpos($line, 'RAG options:') !== false) {
-            $rag_section_started = true;
-            continue;
-        }
-
-        if ($rag_section_started) {
-            $option = trim(str_replace(array('-', '*'), '', $line));
-            if (!empty($option)) {
-                $rag_options[] = $option;
-            }
-        }
-    }
-
-    return array_slice($rag_options, 0, 5); // Limit to 5 options
-}
-
-    public function coolassist_page_shortcode() {
-        ob_start();
-        $coolassist_user = new CoolAssist_User();
-        if ($coolassist_user->is_logged_in()) {
-            include COOLASSIST_PLUGIN_DIR . 'templates/coolassist-chat.php';
+        if (is_wp_error($user)) {
+            wp_send_json_error('Invalid username or password');
         } else {
-            include COOLASSIST_PLUGIN_DIR . 'templates/coolassist-login.php';
+            wp_set_auth_cookie($user->ID);
+            wp_send_json_success(array('message' => 'Login successful', 'redirect' => home_url('/coolassist')));
         }
-        return ob_get_clean();
+    }
+
+    public function ajax_logout() {
+        check_ajax_referer('coolassist-nonce', 'nonce');
+
+        wp_logout();
+        wp_send_json_success('Logout successful');
+    }
+
+    public function ajax_get_model_numbers() {
+        check_ajax_referer('coolassist-nonce', 'nonce');
+
+        $coolassist_manual = new CoolAssist_Manual();
+        $model_numbers = $coolassist_manual->get_all_model_numbers();
+
+        wp_send_json_success($model_numbers);
     }
 
     public function ajax_create_user() {
@@ -659,40 +664,64 @@ class CoolAssist {
         }
     }
 
-    public function ajax_login() {
-        check_ajax_referer('coolassist-nonce', 'nonce');
+    public function get_chat_history() {
+        check_ajax_referer('get_chat_history_nonce', 'nonce');
 
-        $username = sanitize_user($_POST['username']);
-        $password = $_POST['password'];
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error('Unauthorized access');
+        }
 
-        $coolassist_user = new CoolAssist_User();
-        $user = $coolassist_user->authenticate($username, $password);
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'coolassist_chat_history';
 
-        if ($user) {
-            if (!session_id()) {
-                session_start();
-            }
-            $_SESSION['coolassist_user_id'] = $user->id;
-            wp_send_json_success(array('message' => 'Login successful', 'redirect' => home_url('/coolassist')));
+        $username = isset($_POST['username']) ? sanitize_text_field($_POST['username']) : '';
+        $date = isset($_POST['date']) ? sanitize_text_field($_POST['date']) : '';
+
+        $query = "SELECT ch.*, u.user_login as username
+                  FROM $table_name ch
+                  JOIN {$wpdb->users} u ON ch.user_id = u.ID
+                  WHERE 1=1";
+
+        if (!empty($username)) {
+            $query .= $wpdb->prepare(" AND u.user_login LIKE %s", '%' . $wpdb->esc_like($username) . '%');
+        }
+
+        if (!empty($date)) {
+            $query .= $wpdb->prepare(" AND DATE(ch.timestamp) = %s", $date);
+        }
+
+        $query .= " ORDER BY ch.timestamp DESC LIMIT 100";
+
+        $results = $wpdb->get_results($query);
+
+        wp_send_json_success($results);
+    }
+
+    public function coolassist_page_shortcode() {
+        ob_start();
+        if (is_user_logged_in()) {
+            include COOLASSIST_PLUGIN_DIR . 'templates/coolassist-chat.php';
         } else {
-            wp_send_json_error('Invalid username or password');
+            include COOLASSIST_PLUGIN_DIR . 'templates/coolassist-login.php';
+        }
+        return ob_get_clean();
+    }
+
+    private function clean_temp_images() {
+        $temp_dir = wp_upload_dir()['path'] . '/coolassist_temp_images/';
+        $files = glob($temp_dir . '*');
+        $now = time();
+
+        foreach ($files as $file) {
+            if (is_file($file)) {
+                if ($now - filemtime($file) >= 24 * 3600) { // 24 hours
+                    unlink($file);
+                }
+            }
         }
     }
 
-    public function ajax_get_model_numbers() {
-        check_ajax_referer('coolassist-nonce', 'nonce');
-
-        $coolassist_manual = new CoolAssist_Manual();
-        $model_numbers = $coolassist_manual->get_all_model_numbers();
-
-        wp_send_json_success($model_numbers);
-    }
-
-    private function generate_error_response($message) {
-        return array(
-            'content' => array(
-                array('text' => "Error: $message")
-            )
-        );
+    public function __destruct() {
+        $this->clean_temp_images();
     }
 }

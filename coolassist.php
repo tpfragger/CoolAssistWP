@@ -16,7 +16,7 @@ function coolassist_start_session() {
         session_start();
     }
 }
-add_action('init', 'coolassist_start_session');
+add_action('init', 'coolassist_start_session',1);
 
 if (!defined('ABSPATH')) {
     exit; // Exit if accessed directly
@@ -101,10 +101,14 @@ function coolassist_create_pages() {
         'post_status'   => 'publish',
         'post_author'   => 1,
         'post_type'     => 'page',
+        'post_name'     => 'coolassist'
     );
 
-    if (null === get_page_by_path('coolassist')) {
-        wp_insert_post($coolassist_page);
+    $page_id = wp_insert_post($coolassist_page);
+    if ($page_id) {
+        error_log('CoolAssist page created with ID: ' . $page_id);
+    } else {
+        error_log('Failed to create CoolAssist page');
     }
 }
 

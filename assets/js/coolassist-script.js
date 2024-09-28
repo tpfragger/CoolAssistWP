@@ -24,35 +24,36 @@ jQuery(document).ready(function($) {
 
     // Login form handling
     $('#coolassist-login-form').on('submit', function(e) {
-        e.preventDefault();
-        $('#login-loading').show();
-        var formData = $(this).serialize();
-        formData += '&action=coolassist_login&nonce=' + coolassist_ajax.nonce;
+    e.preventDefault();
+    $('#login-loading').show();
+    var formData = $(this).serialize();
+    formData += '&action=coolassist_login&nonce=' + coolassist_ajax.nonce;
 
-        $.ajax({
-            url: coolassist_ajax.ajax_url,
-            type: 'POST',
-            data: formData,
-            dataType: 'json',
-            success: function(response) {
-                console.log('Login response:', response);
-                $('#login-loading').hide();
-                if (response.success) {
-                    $('#login-message').html('<p class="success">' + response.data.message + '</p>');
-                    setTimeout(function() {
-                        window.location.href = response.data.redirect;
-                    }, 1000);
-                } else {
-                    $('#login-message').html('<p class="error">' + response.data + '</p>');
-                }
-            },
-            error: function(xhr, status, error) {
-                console.error('Login error:', status, error);
-                $('#login-loading').hide();
-                $('#login-message').html('<p class="error">Login error: ' + error + '</p>');
+    $.ajax({
+        url: coolassist_ajax.ajax_url,
+        type: 'POST',
+        data: formData,
+        dataType: 'json',
+        success: function(response) {
+            console.log('Full login response:', response);
+            $('#login-loading').hide();
+            if (response.success) {
+                $('#login-message').html('<p class="success">' + response.data.message + '</p>');
+                console.log('Login successful, reloading page');
+                setTimeout(function() {
+                    location.reload();
+                }, 1000);
+            } else {
+                $('#login-message').html('<p class="error">' + response.data + '</p>');
             }
-        });
+        },
+        error: function(xhr, status, error) {
+            console.error('Login error:', status, error);
+            $('#login-loading').hide();
+            $('#login-message').html('<p class="error">Login error: ' + error + '</p>');
+        }
     });
+});
 
     // Logout functionality
     $('#coolassist-logout').on('click', function(e) {

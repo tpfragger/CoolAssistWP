@@ -538,13 +538,17 @@ class CoolAssist {
     $username = sanitize_user($_POST['username']);
     $password = $_POST['password'];
 
+    error_log('CoolAssist: Login attempt for user: ' . $username);
+
     $coolassist_user = new CoolAssist_User();
     $user = $coolassist_user->authenticate($username, $password);
 
     if ($user) {
         $coolassist_user->login($user->id);
-        wp_send_json_success(array('message' => 'Login successful', 'redirect' => home_url('/coolassist')));
+        error_log('CoolAssist: Login successful for user: ' . $username . ' with ID: ' . $user->id);
+        wp_send_json_success(array('message' => 'Login successful'));
     } else {
+        error_log('CoolAssist: Login failed for user: ' . $username);
         wp_send_json_error('Invalid username or password');
     }
 }
@@ -698,14 +702,18 @@ class CoolAssist {
     }
 
     public function coolassist_page_shortcode() {
-        ob_start();
-        if (is_user_logged_in()) {
-            include COOLASSIST_PLUGIN_DIR . 'templates/coolassist-chat.php';
-        } else {
-            include COOLASSIST_PLUGIN_DIR . 'templates/coolassist-login.php';
-        }
-        return ob_get_clean();
+    ob_start();
+    $coolassist_user = new CoolAssist_User();
+    $is_logged_in = $coolassist_user->is_logged_in();
+    error_log('CoolAssist: Shortcode called. User logged in: ' . ($is_logged_in ? 'Yes' : 'No'));
+    if ($is_logged_in) {
+        include COOLASSIST_PLUGIN_DIR . 'templates/coolassist-chat.php';
+    } else {
+        include COOLASSIST_PLUGIN_DIR . 'templates/coolassist-login.php';
     }
+    return ob_get_clean();
+}
+
 
     private function clean_temp_images() {
         $temp_dir = wp_upload_dir()['path'] . '/coolassist_temp_images/';

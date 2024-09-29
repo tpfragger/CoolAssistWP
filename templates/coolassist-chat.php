@@ -26,11 +26,14 @@ if (!$coolassist_user->is_logged_in()) {
             <div id="chat-messages"></div>
             <div id="typing-indicator" style="display: none;">AI is typing...</div>
             <form id="chat-form">
+                <div id="message-input-container">
+                    <input type="text" id="user-message" placeholder="Type your message here...">
+                    <div id="predefined-questions"></div>
+                </div>
                 <input type="file" id="image-upload" name="image" accept="image/*" style="display: none;">
                 <label for="image-upload" class="coolassist-button image-upload-button">
                     <i class="fas fa-image"></i>
                 </label>
-                <input type="text" id="user-message" placeholder="Type your message here..." required>
                 <button type="submit" class="coolassist-button">Send</button>
             </form>
         </div>

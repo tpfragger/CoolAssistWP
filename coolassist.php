@@ -74,7 +74,6 @@ function coolassist_activate() {
 
      // Create chat history table
     $table_name = $wpdb->prefix . 'coolassist_chat_history';
-    $charset_collate = $wpdb->get_charset_collate();
 
     $sql = "CREATE TABLE $table_name (
         id mediumint(9) NOT NULL AUTO_INCREMENT,

@@ -25,7 +25,6 @@ class CoolAssist {
         add_action('wp_ajax_get_chat_history', array($this, 'get_chat_history'));
         add_shortcode('coolassist_page', array($this, 'coolassist_page_shortcode'));
     }
-
     public function enqueue_scripts() {
     wp_enqueue_style('coolassist-style', COOLASSIST_PLUGIN_URL . 'assets/css/coolassist-style.css', array(), '1.0.4');
     wp_enqueue_script('coolassist-script', COOLASSIST_PLUGIN_URL . 'assets/js/coolassist-script.js', array('jquery'), '1.0.4', true);
@@ -293,57 +292,56 @@ class CoolAssist {
     }
 
     public function handle_chat() {
-        check_ajax_referer('coolassist-nonce', 'nonce');
+    check_ajax_referer('coolassist-nonce', 'nonce');
 
-        $message = isset($_POST['message']) ? sanitize_text_field($_POST['message']) : '';
-        $model_number = isset($_POST['model_number']) ? sanitize_text_field($_POST['model_number']) : '';
+    $message = isset($_POST['message']) ? sanitize_text_field($_POST['message']) : '';
+    $model_number = isset($_POST['model_number']) ? sanitize_text_field($_POST['model_number']) : '';
 
-        $image_url = '';
-        if (isset($_FILES['image']) && !empty($_FILES['image']['tmp_name'])) {
-            $image_url = $this->handle_image_upload($_FILES['image']);
-        }
-
-        if (empty($message) && empty($image_url)) {
-            wp_send_json_error('Please provide a message or upload an image.');
-            return;
-        }
-
-        try {
-            // Perform RAG search
-            $rag_results = $this->perform_rag_search($message, $model_number);
-
-            // Extract relevant manual content and images
-            $manual_content = $rag_results['content'];
-            $manual_images = $rag_results['images'];
-
-            // Prepare prompt for Claude API
-            $prompt = $this->prepare_prompt($message, $manual_content, $image_url);
-
-            // Generate AI response
-            $response = $this->call_claude_api($prompt, $image_url);
-
-            if (isset($response['content'][0]['text'])) {
-                $ai_response = $response['content'][0]['text'];
-                
-                // Generate buttons based on AI response
-                $buttons = $this->generate_buttons($ai_response);
-
-                // Store chat history
-                $this->store_chat_history($message, $ai_response);
-
-                wp_send_json_success(array(
-                    'message' => $ai_response,
-                    'image_url' => $image_url,
-                    'manual_images' => $manual_images,
-                    'buttons' => $buttons
-                ));
-            } else {
-                wp_send_json_error('Failed to get a valid response from the AI service');
-            }
-        } catch (Exception $e) {
-            wp_send_json_error('An error occurred while processing your request: ' . $e->getMessage());
-        }
+    $image_url = '';
+    if (isset($_FILES['image']) && !empty($_FILES['image']['tmp_name'])) {
+        $image_url = $this->handle_image_upload($_FILES['image']);
     }
+
+    if (empty($message) && empty($image_url)) {
+        wp_send_json_error('Please provide a message or upload an image.');
+        return;
+    }
+
+    try {
+        // Store user message in database
+        $this->store_chat_history($message, '', 'user');
+
+        // Perform RAG search if model number is provided
+        $rag_results = $model_number ? $this->perform_rag_search($message, $model_number) : ['content' => '', 'images' => []];
+
+        // Prepare prompt for Claude API
+        $prompt = $this->prepare_prompt($message, $rag_results['content'], $model_number, $image_url);
+
+        // Generate AI response
+        $response = $this->call_claude_api($prompt, $image_url);
+
+        if (isset($response['content'][0]['text'])) {
+            $ai_response = $response['content'][0]['text'];
+            
+            // Generate buttons based on AI response
+            $buttons = $this->generate_buttons($ai_response);
+
+            // Store AI response in database
+            $this->store_chat_history($ai_response, '', 'ai');
+
+            wp_send_json_success(array(
+                'message' => $ai_response,
+                'image_url' => $image_url,
+                'manual_images' => $rag_results['images'],
+                'buttons' => $buttons
+            ));
+        } else {
+            wp_send_json_error('Failed to get a valid response from the AI service');
+        }
+    } catch (Exception $e) {
+        wp_send_json_error('An error occurred while processing your request: ' . $e->getMessage());
+    }
+}
 
     private function perform_rag_search($query, $model_number) {
         $coolassist_manual = new CoolAssist_Manual();
@@ -504,6 +502,7 @@ class CoolAssist {
         return $buttons;
     }
 
+
     public function handle_image_upload($file) {
         $upload_dir = wp_upload_dir();
         $file_name = wp_unique_filename($upload_dir['path'], $file['name']);
@@ -516,21 +515,22 @@ class CoolAssist {
         return '';
     }
 
-    private function store_chat_history($user_message, $ai_response) {
-        global $wpdb;
-        $table_name = $wpdb->prefix . 'coolassist_chat_history';
-        
-        $wpdb->insert(
-            $table_name,
-            array(
-                'user_id' => get_current_user_id(),
-                'user_message' => $user_message,
-                'ai_response' => $ai_response,
-                'timestamp' => current_time('mysql')
-            ),
-            array('%d', '%s', '%s', '%s')
-        );
-    }
+    private function store_chat_history($message, $model_number, $sender) {
+    global $wpdb;
+    $table_name = $wpdb->prefix . 'coolassist_chat_history';
+    
+    $wpdb->insert(
+        $table_name,
+        array(
+            'user_id' => get_current_user_id(),
+            'message' => $message,
+            'model_number' => $model_number,
+            'sender' => $sender,
+            'timestamp' => current_time('mysql')
+        ),
+        array('%d', '%s', '%s', '%s', '%s')
+    );
+}
 
     public function ajax_login() {
     check_ajax_referer('coolassist-nonce', 'nonce');
@@ -713,7 +713,6 @@ class CoolAssist {
     }
     return ob_get_clean();
 }
-
 
     private function clean_temp_images() {
         $temp_dir = wp_upload_dir()['path'] . '/coolassist_temp_images/';

@@ -3,6 +3,22 @@
     
     <h2>AC Manuals</h2>
     <p>Manage AC manuals in the <a href="<?php echo admin_url('edit.php?post_type=ac_manual'); ?>">AC Manuals</a> section.</p>
+    <h3>Upload AC Manual</h3>
+<form id="upload-manual-form" method="post" enctype="multipart/form-data">
+    <?php wp_nonce_field('coolassist-nonce', 'nonce'); ?>
+    <table class="form-table">
+        <tr>
+            <th><label for="model_number">Model Number</label></th>
+            <td><input type="text" name="model_number" id="model_number" class="regular-text" required></td>
+        </tr>
+        <tr>
+            <th><label for="manual_file">Manual PDF</label></th>
+            <td><input type="file" name="manual_file" id="manual_file" accept=".pdf" required></td>
+        </tr>
+    </table>
+    <?php submit_button('Upload Manual'); ?>
+</form>
+
     
     <h2>User Management</h2>
     <p>Manage AC technician accounts in the <a href="<?php echo admin_url('users.php'); ?>">Users</a> section.</p>

@@ -635,36 +635,47 @@ class CoolAssist {
     }
 
     public function ajax_upload_manual() {
-        check_ajax_referer('coolassist-nonce', 'nonce');
-        
-        if (!current_user_can('manage_options')) {
-            wp_send_json_error('Unauthorized access');
-        }
-
-        $model_number = sanitize_text_field($_POST['model_number']);
-        $file = $_FILES['manual_file'];
-
-        // Check file size (100MB limit)
-        if ($file['size'] > 100 * 1024 * 1024) {
-            wp_send_json_error('File size exceeds the limit of 100MB');
-        }
-
-        // Check file type
-        $allowed_types = array('application/pdf');
-        if (!in_array($file['type'], $allowed_types)) {
-            wp_send_json_error('Only PDF files are allowed');
-        }
-
-        $coolassist_manual = new CoolAssist_Manual();
-        $result = $coolassist_manual->upload_manual($model_number, $file);
-
-        if ($result) {
-            wp_send_json_success('Manual uploaded successfully');
-        } else {
-            wp_send_json_error('Failed to upload manual');
-        }
+    check_ajax_referer('coolassist-nonce', 'nonce');
+    
+    if (!current_user_can('manage_options')) {
+        wp_send_json_error('Unauthorized access');
+        return;
     }
 
+    if (!isset($_POST['model_number']) || !isset($_FILES['manual_file'])) {
+        wp_send_json_error('Missing required fields');
+        return;
+    }
+
+    $model_number = sanitize_text_field($_POST['model_number']);
+    $file = $_FILES['manual_file'];
+
+    // Check file size (100MB limit)
+    if ($file['size'] > 100 * 1024 * 1024) {
+        wp_send_json_error('File size exceeds the limit of 100MB');
+        return;
+    }
+
+    // Check file type
+    $finfo = finfo_open(FILEINFO_MIME_TYPE);
+    $file_type = finfo_file($finfo, $file['tmp_name']);
+    finfo_close($finfo);
+
+    $allowed_types = array('application/pdf');
+    if (!in_array($file_type, $allowed_types)) {
+        wp_send_json_error('Only PDF files are allowed');
+        return;
+    }
+
+    $coolassist_manual = new CoolAssist_Manual();
+    $result = $coolassist_manual->upload_manual($model_number, $file);
+
+    if ($result) {
+        wp_send_json_success('Manual uploaded successfully');
+    } else {
+        wp_send_json_error('Failed to upload manual');
+    }
+}
 
     public function ajax_delete_manual() {
         check_ajax_referer('coolassist-nonce', 'nonce');

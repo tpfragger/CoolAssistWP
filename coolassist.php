@@ -89,6 +89,14 @@ function coolassist_activate() {
     // Create CoolAssist page
     coolassist_create_pages();
 
+    // Create upload directory with correct permissions
+    $upload_dir = wp_upload_dir();
+    $coolassist_upload_dir = $upload_dir['basedir'] . '/coolassist_manuals';
+    if (!file_exists($coolassist_upload_dir)) {
+        wp_mkdir_p($coolassist_upload_dir);
+        chmod($coolassist_upload_dir, 0755);
+    }
+
     // Flush rewrite rules
     flush_rewrite_rules();
 }

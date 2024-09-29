@@ -86,7 +86,10 @@ class CoolAssist_User {
         $_SESSION['coolassist_user_id'] = $user_id;
     }
 
-    public function logout() {
-        unset($_SESSION['coolassist_user_id']);
+public function logout() {
+    if (session_status() == PHP_SESSION_ACTIVE) {
+        session_destroy();
     }
+    unset($_SESSION['coolassist_user_id']);
+}
 }

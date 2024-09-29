@@ -292,56 +292,57 @@ class CoolAssist {
     }
 
     public function handle_chat() {
-    check_ajax_referer('coolassist-nonce', 'nonce');
+        check_ajax_referer('coolassist-nonce', 'nonce');
 
-    $message = isset($_POST['message']) ? sanitize_text_field($_POST['message']) : '';
-    $model_number = isset($_POST['model_number']) ? sanitize_text_field($_POST['model_number']) : '';
+        $message = isset($_POST['message']) ? sanitize_text_field($_POST['message']) : '';
+        $model_number = isset($_POST['model_number']) ? sanitize_text_field($_POST['model_number']) : '';
 
-    $image_url = '';
-    if (isset($_FILES['image']) && !empty($_FILES['image']['tmp_name'])) {
-        $image_url = $this->handle_image_upload($_FILES['image']);
-    }
-
-    if (empty($message) && empty($image_url)) {
-        wp_send_json_error('Please provide a message or upload an image.');
-        return;
-    }
-
-    try {
-        // Store user message in database
-        $this->store_chat_history($message, '', 'user');
-
-        // Perform RAG search if model number is provided
-        $rag_results = $model_number ? $this->perform_rag_search($message, $model_number) : ['content' => '', 'images' => []];
-
-        // Prepare prompt for Claude API
-        $prompt = $this->prepare_prompt($message, $rag_results['content'], $model_number, $image_url);
-
-        // Generate AI response
-        $response = $this->call_claude_api($prompt, $image_url);
-
-        if (isset($response['content'][0]['text'])) {
-            $ai_response = $response['content'][0]['text'];
-            
-            // Generate buttons based on AI response
-            $buttons = $this->generate_buttons($ai_response);
-
-            // Store AI response in database
-            $this->store_chat_history($ai_response, '', 'ai');
-
-            wp_send_json_success(array(
-                'message' => $ai_response,
-                'image_url' => $image_url,
-                'manual_images' => $rag_results['images'],
-                'buttons' => $buttons
-            ));
-        } else {
-            wp_send_json_error('Failed to get a valid response from the AI service');
+        $image_url = '';
+        if (isset($_FILES['image']) && !empty($_FILES['image']['tmp_name'])) {
+            $image_url = $this->handle_image_upload($_FILES['image']);
         }
-    } catch (Exception $e) {
-        wp_send_json_error('An error occurred while processing your request: ' . $e->getMessage());
+
+        if (empty($message) && empty($image_url)) {
+            wp_send_json_error('Please provide a message or upload an image.');
+            return;
+        }
+
+        try {
+            // Store user message in database
+            $this->store_chat_history($message, $model_number, 'user');
+
+            // Perform RAG search if model number is provided
+            $rag_results = $model_number ? $this->perform_rag_search($message, $model_number) : ['content' => '', 'images' => []];
+
+            // Prepare prompt for Claude API
+            $prompt = $this->prepare_prompt($message, $rag_results['content'], $model_number, $image_url);
+
+            // Generate AI response
+            $response = $this->call_claude_api($prompt, $image_url);
+
+            if (isset($response['content'][0]['text'])) {
+                $ai_response = $response['content'][0]['text'];
+                
+                // Generate buttons based on AI response
+                $buttons = $this->generate_buttons($ai_response);
+
+                // Store AI response in database
+                $this->store_chat_history($ai_response, $model_number, 'ai');
+
+                wp_send_json_success(array(
+                    'message' => $ai_response,
+                    'image_url' => $image_url,
+                    'manual_images' => $rag_results['images'],
+                    'buttons' => $buttons
+                ));
+            } else {
+                wp_send_json_error('Failed to get a valid response from the AI service');
+            }
+        } catch (Exception $e) {
+            wp_send_json_error('An error occurred while processing your request: ' . $e->getMessage());
+        }
     }
-}
+
 
     private function perform_rag_search($query, $model_number) {
         $coolassist_manual = new CoolAssist_Manual();
@@ -406,8 +407,10 @@ class CoolAssist {
         return $images;
     }
 
-    private function prepare_prompt($message, $manual_content, $image_url) {
-        $prompt = "You are an AI assistant specialized in AC and HVAC repairs. ";
+    private function prepare_prompt($message, $manual_content, $model_number, $image_url) {
+        $prompt = "You are an AI assistant specialized in AC and HVAC repairs, addressing professional AC repairmen. ";
+        $prompt .= "Provide concise, technical responses without unnecessary explanations. ";
+        $prompt .= "Focus on the most statistically probable causes and solutions for the described issue. ";
         $prompt .= "User query: $message\n\n";
         
         if (!empty($manual_content)) {
@@ -415,10 +418,10 @@ class CoolAssist {
         }
         
         if (!empty($image_url)) {
-            $prompt .= "An image has been uploaded. Please analyze it and provide relevant information.\n\n";
+            $prompt .= "An image has been uploaded. Please analyze it and provide relevant technical information.\n\n";
         }
         
-        $prompt .= "Please provide a helpful response to the user's query, incorporating the manual content when relevant. Also, suggest 3-5 possible follow-up questions or actions the user might want to take.";
+        $prompt .= "Please provide a direct, technical response to the repairman's query, incorporating the manual content when relevant. Suggest 2-3 possible next steps or diagnostic actions.";
         
         return $prompt;
     }
@@ -556,7 +559,9 @@ class CoolAssist {
     public function ajax_logout() {
         check_ajax_referer('coolassist-nonce', 'nonce');
 
-        wp_logout();
+        $coolassist_user = new CoolAssist_User();
+        $coolassist_user->logout();
+
         wp_send_json_success('Logout successful');
     }
 
@@ -639,6 +644,17 @@ class CoolAssist {
         $model_number = sanitize_text_field($_POST['model_number']);
         $file = $_FILES['manual_file'];
 
+        // Check file size (100MB limit)
+        if ($file['size'] > 100 * 1024 * 1024) {
+            wp_send_json_error('File size exceeds the limit of 100MB');
+        }
+
+        // Check file type
+        $allowed_types = array('application/pdf');
+        if (!in_array($file['type'], $allowed_types)) {
+            wp_send_json_error('Only PDF files are allowed');
+        }
+
         $coolassist_manual = new CoolAssist_Manual();
         $result = $coolassist_manual->upload_manual($model_number, $file);
 
@@ -648,6 +664,7 @@ class CoolAssist {
             wp_send_json_error('Failed to upload manual');
         }
     }
+
 
     public function ajax_delete_manual() {
         check_ajax_referer('coolassist-nonce', 'nonce');

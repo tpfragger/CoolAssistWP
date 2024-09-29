@@ -36,6 +36,7 @@ body, html {
     flex-grow: 1;
     display: flex;
     flex-direction: column;
+    overflow: hidden;
 }
 
 .chat-interface {
@@ -45,6 +46,7 @@ body, html {
     background-color: #f5f5f5;
     border-radius: 5px;
     padding: 20px;
+    overflow: hidden;
 }
 
 .model-selection {

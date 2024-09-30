@@ -752,16 +752,23 @@ class CoolAssist {
     }
 
     public function coolassist_page_shortcode() {
+    error_log('coolassist_page_shortcode called');
     $coolassist_user = new CoolAssist_User();
     $is_logged_in = $coolassist_user->is_logged_in();
     
+    error_log('User logged in: ' . ($is_logged_in ? 'Yes' : 'No'));
+    
+    ob_start();
     if ($is_logged_in) {
-        return include COOLASSIST_PLUGIN_DIR . 'templates/coolassist-chat.php';
+        error_log('Attempting to include chat template');
+        include COOLASSIST_PLUGIN_DIR . 'templates/coolassist-chat.php';
     } else {
-        ob_start();
+        error_log('Attempting to include login template');
         include COOLASSIST_PLUGIN_DIR . 'templates/coolassist-login.php';
-        return ob_get_clean();
     }
+    $output = ob_get_clean();
+    error_log('Template included. Output length: ' . strlen($output));
+    return $output;
 }
 
     private function clean_temp_images() {

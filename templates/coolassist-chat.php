@@ -1,6 +1,4 @@
-// Start output buffering to capture any unexpected output
-ob_start();
-
+<?php
 // Check if the user is logged in using the CoolAssist_User class
 $coolassist_user = new CoolAssist_User();
 if (!$coolassist_user->is_logged_in()) {
@@ -44,9 +42,4 @@ if (!$coolassist_user->is_logged_in()) {
     </script>
     <?php
 }
-
-// Capture the output
-$output = ob_get_clean();
-
-// Return the captured content
-return $output;
+?>

@@ -77,33 +77,40 @@ jQuery(document).ready(function($) {
     });
 
     $('#upload-manual-form').on('submit', function(e) {
-        e.preventDefault();
-        var formData = new FormData(this);
-        formData.append('action', 'coolassist_upload_manual');
-        formData.append('nonce', coolassist_ajax.nonce);
+    e.preventDefault();
+    var formData = new FormData(this);
+    formData.append('action', 'coolassist_upload_manual');
+    formData.append('nonce', $('input[name="upload_manual_nonce"]').val());
 
-        $.ajax({
-            url: coolassist_ajax.ajax_url,
-            type: 'POST',
-            data: formData,
-            contentType: false,
-            processData: false,
-            success: function(response) {
-                console.log('Upload response:', response);  // Add this line for debugging
-                if (response.success) {
-                    alert('Manual uploaded successfully!');
-                    location.reload();
-                } else {
-                    alert('Error uploading manual: ' + (response.data || 'Unknown error'));
-                }
-            },
-            error: function(xhr, status, error) {
-                console.error('Upload error:', xhr.responseText);  // Add this line for debugging
-                alert('Error uploading manual: ' + error);
+    // Log the FormData contents
+    for (var pair of formData.entries()) {
+        console.log(pair[0] + ': ' + pair[1]);
+    }
+
+    $.ajax({
+        url: coolassist_ajax.ajax_url,
+        type: 'POST',
+        data: formData,
+        contentType: false,
+        processData: false,
+        success: function(response) {
+            console.log('Upload response:', response);
+            if (response.success) {
+                alert('Manual uploaded successfully!');
+                location.reload();
+            } else {
+                alert('Error uploading manual: ' + (response.data || 'Unknown error'));
             }
-        });
+        },
+        error: function(xhr, status, error) {
+            console.error('Upload error:', xhr.responseText);
+            console.error('Status:', status);
+            console.error('Error:', error);
+            console.error('XHR:', xhr);
+            alert('Error uploading manual. Check console for details.');
+        }
     });
-
+});
 
     // Delete manual
     $('.delete-manual').on('click', function() {

@@ -295,74 +295,73 @@ class CoolAssist {
 
 
     public function handle_chat() {
-        check_ajax_referer('coolassist-nonce', 'nonce');
+    check_ajax_referer('coolassist-nonce', 'nonce');
 
-        $message = isset($_POST['message']) ? sanitize_text_field($_POST['message']) : '';
-        $model_number = isset($_POST['model_number']) ? sanitize_text_field($_POST['model_number']) : '';
+    $message = isset($_POST['message']) ? sanitize_text_field($_POST['message']) : '';
+    $model_number = isset($_POST['model_number']) ? sanitize_text_field($_POST['model_number']) : '';
 
-        $image_url = '';
-        if (isset($_FILES['image']) && !empty($_FILES['image']['tmp_name'])) {
-            $image_url = $this->handle_image_upload($_FILES['image']);
-        }
-
-        if (empty($message) && empty($image_url)) {
-            wp_send_json_error('Please provide a message or upload an image.');
-            return;
-        }
-
-        // Start or resume session
-        if (!session_id()) {
-            session_start();
-        }
-
-        // Initialize conversation history if not exists
-        if (!isset($_SESSION['conversation_history'])) {
-            $_SESSION['conversation_history'] = array();
-        }
-
-        // Add user message to history
-        $_SESSION['conversation_history'][] = array('role' => 'user', 'content' => $message);
-
-        try {
-            // Store user message in database
-            $this->store_chat_history($message, $model_number, 'user');
-
-            // Prepare prompt for Claude API
-            $prompt = $this->prepare_prompt_with_history($message, $model_number, $image_url);
-
-            // Generate AI response
-            $response = $this->call_claude_api($prompt, $image_url);
-
-            if (isset($response['content'][0]['text'])) {
-                $ai_response = $response['content'][0]['text'];
-                
-                // Add AI response to history
-                $_SESSION['conversation_history'][] = array('role' => 'assistant', 'content' => $ai_response);
-
-                // Limit history to last 10 messages
-                if (count($_SESSION['conversation_history']) > 10) {
-                    array_shift($_SESSION['conversation_history']);
-                }
-
-                // Generate buttons based on AI response
-                $buttons = $this->generate_buttons($ai_response);
-
-                // Store AI response in database
-                $this->store_chat_history($ai_response, $model_number, 'ai');
-
-                wp_send_json_success(array(
-                    'message' => $ai_response,
-                    'image_url' => $image_url,
-                    'buttons' => $buttons
-                ));
-            } else {
-                wp_send_json_error('Failed to get a valid response from the AI service');
-            }
-        } catch (Exception $e) {
-            wp_send_json_error('An error occurred while processing your request: ' . $e->getMessage());
-        }
+    $image_url = '';
+    if (isset($_FILES['image']) && !empty($_FILES['image']['tmp_name'])) {
+        $image_url = $this->handle_image_upload($_FILES['image']);
     }
 
+    if (empty($message) && empty($image_url)) {
+        wp_send_json_error('Please provide a message or upload an image.');
+        return;
+    }
+
+    // Start or resume session
+    if (!session_id()) {
+        session_start();
+    }
+
+    // Initialize conversation history if not exists
+    if (!isset($_SESSION['conversation_history'])) {
+        $_SESSION['conversation_history'] = array();
+    }
+
+    // Add user message to history
+    $_SESSION['conversation_history'][] = array('role' => 'user', 'content' => $message);
+
+    try {
+        // Store user message in database
+        $this->store_chat_history($message, $model_number, 'user');
+
+        // Prepare prompt for Claude API
+        $prompt = $this->prepare_prompt_with_history($message, $model_number, $image_url);
+
+        // Generate AI response
+        $response = $this->call_claude_api($prompt, $image_url);
+
+        if (isset($response['content'][0]['text'])) {
+            $ai_response = $response['content'][0]['text'];
+            
+            // Add AI response to history
+            $_SESSION['conversation_history'][] = array('role' => 'assistant', 'content' => $ai_response);
+
+            // Limit history to last 10 messages
+            if (count($_SESSION['conversation_history']) > 10) {
+                array_shift($_SESSION['conversation_history']);
+            }
+
+            // Generate buttons based on AI response
+            $buttons = $this->generate_buttons($ai_response);
+
+            // Store AI response in database
+            $this->store_chat_history($ai_response, $model_number, 'ai');
+
+            wp_send_json_success(array(
+                'message' => $ai_response,
+                'image_url' => $image_url,
+                'buttons' => $buttons
+            ));
+        } else {
+            wp_send_json_error('Failed to get a valid response from the AI service');
+        }
+    } catch (Exception $e) {
+        wp_send_json_error('An error occurred while processing your request: ' . $e->getMessage());
+    }
+}
 
     private function perform_rag_search($query, $model_number) {
         $coolassist_manual = new CoolAssist_Manual();
@@ -428,29 +427,29 @@ class CoolAssist {
     }
 
     private function prepare_prompt_with_history($message, $model_number, $image_url) {
-        $prompt = "You are an AI assistant specialized in AC and HVAC repairs, addressing professional AC repairmen. ";
-        $prompt .= "Provide concise, technical responses without unnecessary explanations. ";
-        $prompt .= "Focus on the most statistically probable causes and solutions for the described issue. ";
-        
-        // Add conversation history
-        foreach ($_SESSION['conversation_history'] as $entry) {
-            $prompt .= "{$entry['role']}: {$entry['content']}\n\n";
-        }
-        
-        $prompt .= "Current query: $message\n\n";
-        
-        if (!empty($model_number)) {
-            $prompt .= "AC Model: $model_number\n\n";
-        }
-        
-        if (!empty($image_url)) {
-            $prompt .= "An image has been uploaded. Please analyze it and provide relevant technical information.\n\n";
-        }
-        
-        $prompt .= "Please provide a direct, technical response to the repairman's query, incorporating previous context when relevant. Suggest 2-3 possible next steps or diagnostic actions.";
-        
-        return $prompt;
+    $prompt = "You are an AI assistant specialized in AC and HVAC repairs, addressing professional AC repairmen. ";
+    $prompt .= "Provide concise, technical responses without unnecessary explanations. ";
+    $prompt .= "Focus on the most statistically probable causes and solutions for the described issue. ";
+    
+    // Add conversation history
+    foreach ($_SESSION['conversation_history'] as $entry) {
+        $prompt .= "{$entry['role']}: {$entry['content']}\n\n";
     }
+    
+    $prompt .= "Current query: $message\n\n";
+    
+    if (!empty($model_number)) {
+        $prompt .= "AC Model: $model_number\n\n";
+    }
+    
+    if (!empty($image_url)) {
+        $prompt .= "An image has been uploaded. Please analyze it and provide relevant technical information.\n\n";
+    }
+    
+    $prompt .= "Please provide a direct, technical response to the repairman's query, incorporating previous context when relevant. Suggest 2-3 possible next steps or diagnostic actions.";
+    
+    return $prompt;
+}
 
     private function call_claude_api($prompt, $image_url = '') {
         $url = 'https://api.anthropic.com/v1/messages';
@@ -545,21 +544,24 @@ class CoolAssist {
     }
 
     private function store_chat_history($message, $model_number, $sender) {
-        global $wpdb;
-        $table_name = $wpdb->prefix . 'coolassist_chat_history';
-        
-        $wpdb->insert(
-            $table_name,
-            array(
-                'user_id' => get_current_user_id(),
-                'message' => $message,
-                'model_number' => $model_number,
-                'sender' => $sender,
-                'timestamp' => current_time('mysql')
-            ),
-            array('%d', '%s', '%s', '%s', '%s')
-        );
-    }
+    global $wpdb;
+    $table_name = $wpdb->prefix . 'coolassist_chat_history';
+    
+    // Get the custom user ID from the session
+    $custom_user_id = isset($_SESSION['coolassist_user_id']) ? $_SESSION['coolassist_user_id'] : 0;
+    
+    $wpdb->insert(
+        $table_name,
+        array(
+            'user_id' => $custom_user_id,
+            'message' => $message,
+            'model_number' => $model_number,
+            'sender' => $sender,
+            'timestamp' => current_time('mysql')
+        ),
+        array('%d', '%s', '%s', '%s', '%s')
+    );
+}
 
     public function ajax_login() {
     check_ajax_referer('coolassist-nonce', 'nonce');
@@ -567,17 +569,14 @@ class CoolAssist {
     $username = sanitize_user($_POST['username']);
     $password = $_POST['password'];
 
-    error_log('CoolAssist: Login attempt for user: ' . $username);
-
     $coolassist_user = new CoolAssist_User();
     $user = $coolassist_user->authenticate($username, $password);
 
     if ($user) {
         $coolassist_user->login($user->id);
-        error_log('CoolAssist: Login successful for user: ' . $username . ' with ID: ' . $user->id);
+        $_SESSION['coolassist_user_id'] = $user->id;
         wp_send_json_success(array('message' => 'Login successful'));
     } else {
-        error_log('CoolAssist: Login failed for user: ' . $username);
         wp_send_json_error('Invalid username or password');
     }
 }
@@ -661,47 +660,62 @@ class CoolAssist {
     }
 
     public function ajax_upload_manual() {
-        check_ajax_referer('coolassist-nonce', 'nonce');
-        
-        if (!current_user_can('manage_options')) {
-            wp_send_json_error('Unauthorized access');
-            return;
-        }
-
-        if (!isset($_POST['model_number']) || !isset($_FILES['manual_file'])) {
-            wp_send_json_error('Missing required fields');
-            return;
-        }
-
-        $model_number = sanitize_text_field($_POST['model_number']);
-        $file = $_FILES['manual_file'];
-
-        // Check file size (100MB limit)
-        if ($file['size'] > 100 * 1024 * 1024) {
-            wp_send_json_error('File size exceeds the limit of 100MB');
-            return;
-        }
-
-        // Check file type
-        $finfo = finfo_open(FILEINFO_MIME_TYPE);
-        $file_type = finfo_file($finfo, $file['tmp_name']);
-        finfo_close($finfo);
-
-        $allowed_types = array('application/pdf');
-        if (!in_array($file_type, $allowed_types)) {
-            wp_send_json_error('Only PDF files are allowed');
-            return;
-        }
-
-        $coolassist_manual = new CoolAssist_Manual();
-        $result = $coolassist_manual->upload_manual($model_number, $file);
-
-        if ($result) {
-            wp_send_json_success('Manual uploaded successfully');
-        } else {
-            wp_send_json_error('Failed to upload manual');
-        }
+    error_log('AJAX upload manual called');
+    
+    if (!check_ajax_referer('upload_ac_manual', 'nonce', false)) {
+        error_log('Nonce check failed');
+        wp_send_json_error('Nonce verification failed');
+        return;
     }
+    
+    if (!current_user_can('manage_options')) {
+        error_log('User does not have permission');
+        wp_send_json_error('Unauthorized access');
+        return;
+    }
+
+    error_log('POST data: ' . print_r($_POST, true));
+    error_log('FILES data: ' . print_r($_FILES, true));
+
+    if (!isset($_POST['model_number']) || !isset($_FILES['manual_file'])) {
+        error_log('Missing required fields');
+        wp_send_json_error('Missing required fields');
+        return;
+    }
+
+    $model_number = sanitize_text_field($_POST['model_number']);
+    $file = $_FILES['manual_file'];
+
+    // Check file size (100MB limit)
+    if ($file['size'] > 100 * 1024 * 1024) {
+        error_log('File size exceeds limit');
+        wp_send_json_error('File size exceeds the limit of 100MB');
+        return;
+    }
+
+    // Check file type
+    $finfo = finfo_open(FILEINFO_MIME_TYPE);
+    $file_type = finfo_file($finfo, $file['tmp_name']);
+    finfo_close($finfo);
+
+    $allowed_types = array('application/pdf');
+    if (!in_array($file_type, $allowed_types)) {
+        error_log('Invalid file type: ' . $file_type);
+        wp_send_json_error('Only PDF files are allowed');
+        return;
+    }
+
+    $coolassist_manual = new CoolAssist_Manual();
+    $result = $coolassist_manual->upload_manual($model_number, $file);
+
+    if ($result) {
+        error_log('Manual uploaded successfully');
+        wp_send_json_success('Manual uploaded successfully');
+    } else {
+        error_log('Failed to upload manual');
+        wp_send_json_error('Failed to upload manual');
+    }
+}
 
     public function ajax_delete_manual() {
         check_ajax_referer('coolassist-nonce', 'nonce');
@@ -756,16 +770,16 @@ class CoolAssist {
     }
 
     public function coolassist_page_shortcode() {
-    ob_start();
     $coolassist_user = new CoolAssist_User();
     $is_logged_in = $coolassist_user->is_logged_in();
-    error_log('CoolAssist: Shortcode called. User logged in: ' . ($is_logged_in ? 'Yes' : 'No'));
+    
     if ($is_logged_in) {
-        include COOLASSIST_PLUGIN_DIR . 'templates/coolassist-chat.php';
+        return include COOLASSIST_PLUGIN_DIR . 'templates/coolassist-chat.php';
     } else {
+        ob_start();
         include COOLASSIST_PLUGIN_DIR . 'templates/coolassist-login.php';
+        return ob_get_clean();
     }
-    return ob_get_clean();
 }
 
     private function clean_temp_images() {

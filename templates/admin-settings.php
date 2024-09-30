@@ -5,7 +5,7 @@
     <p>Manage AC manuals in the <a href="<?php echo admin_url('edit.php?post_type=ac_manual'); ?>">AC Manuals</a> section.</p>
     <h3>Upload AC Manual</h3>
 <form id="upload-manual-form" method="post" enctype="multipart/form-data">
-    <?php wp_nonce_field('coolassist-nonce', 'nonce'); ?>
+    <?php wp_nonce_field('upload_ac_manual', 'upload_manual_nonce'); ?>
     <table class="form-table">
         <tr>
             <th><label for="model_number">Model Number</label></th>

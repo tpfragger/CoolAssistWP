@@ -8,40 +8,40 @@ class CoolAssist_Manual {
     }
 
     public function upload_manual($model_number, $file) {
-        $upload_dir = wp_upload_dir();
-        $coolassist_upload_dir = $upload_dir['basedir'] . '/coolassist_manuals';
-        
-        if (!file_exists($coolassist_upload_dir)) {
-            wp_mkdir_p($coolassist_upload_dir);
-            chmod($coolassist_upload_dir, 0755);
-        }
-
-        $file_name = wp_unique_filename($coolassist_upload_dir, $file['name']);
-        $file_path = $coolassist_upload_dir . '/' . $file_name;
-
-        if (move_uploaded_file($file['tmp_name'], $file_path)) {
-            global $wpdb;
-            $result = $wpdb->insert(
-                $this->table_name,
-                array(
-                    'model_number' => sanitize_text_field($model_number),
-                    'file_name' => $file_name,
-                    'file_path' => $file_path
-                ),
-                array('%s', '%s', '%s')
-            );
-
-            if ($result === false) {
-                error_log('Database insert failed: ' . $wpdb->last_error);
-                return false;
-            }
-
-            return $wpdb->insert_id;
-        }
-
-        error_log('File upload failed');
-        return false;
+    $upload_dir = wp_upload_dir();
+    $coolassist_upload_dir = $upload_dir['basedir'] . '/coolassist_manuals';
+    
+    if (!file_exists($coolassist_upload_dir)) {
+        wp_mkdir_p($coolassist_upload_dir);
+        chmod($coolassist_upload_dir, 0755);
     }
+
+    $file_name = wp_unique_filename($coolassist_upload_dir, $file['name']);
+    $file_path = $coolassist_upload_dir . '/' . $file_name;
+
+    if (move_uploaded_file($file['tmp_name'], $file_path)) {
+        global $wpdb;
+        $result = $wpdb->insert(
+            $this->table_name,
+            array(
+                'model_number' => sanitize_text_field($model_number),
+                'file_name' => $file_name,
+                'file_path' => $file_path
+            ),
+            array('%s', '%s', '%s')
+        );
+
+        if ($result === false) {
+            error_log('Database insert failed: ' . $wpdb->last_error);
+            return false;
+        }
+
+        return $wpdb->insert_id;
+    }
+
+    error_log('File upload failed: ' . print_r($file, true));
+    return false;
+}
 
     public function get_all_manuals() {
         global $wpdb;

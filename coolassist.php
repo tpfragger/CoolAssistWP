@@ -72,7 +72,7 @@ function coolassist_activate() {
 
     dbDelta($sql);
 
-     // Create chat history table
+    // Create chat history table
     $table_name = $wpdb->prefix . 'coolassist_chat_history';
 
     $sql = "CREATE TABLE $table_name (
@@ -80,6 +80,7 @@ function coolassist_activate() {
         user_id mediumint(9) NOT NULL,
         sender enum('user', 'ai') NOT NULL,
         message text NOT NULL,
+        model_number varchar(100) NOT NULL,
         timestamp datetime DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY  (id)
     ) $charset_collate;";

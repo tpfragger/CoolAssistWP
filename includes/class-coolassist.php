@@ -210,9 +210,8 @@ class CoolAssist {
                             <td><?php echo esc_html($manual->model_number); ?></td>
                             <td><?php echo esc_html($manual->file_name); ?></td>
                             <td>
-                                <a href="<?php echo esc_url($manual->file_path); ?>" target="_blank" class="button">Preview</a>
-                                <a href="<?php echo esc_url($manual->file_path); ?>" download class="button">Download</a>
-                                <button class="button delete-manual" data-manual-id="<?php echo esc_attr($manual->id); ?>">Delete</button>
+<a href="<?php echo esc_url($coolassist_manual->get_manual_url($manual->id)); ?>" target="_blank" class="button">Preview</a>
+<a href="<?php echo esc_url($coolassist_manual->get_manual_url($manual->id)); ?>" download class="button">Download</a>                                <button class="button delete-manual" data-manual-id="<?php echo esc_attr($manual->id); ?>">Delete</button>
                             </td>
                         </tr>
                     <?php } ?>
@@ -661,28 +660,42 @@ class CoolAssist {
     }
 
     public function ajax_upload_manual() {
-    check_ajax_referer('upload_ac_manual', 'upload_manual_nonce');
+    error_log('ajax_upload_manual called');
+    
+    if (!check_ajax_referer('upload_ac_manual', 'upload_manual_nonce', false)) {
+        error_log('Nonce check failed');
+        wp_send_json_error('Nonce verification failed');
+        return;
+    }
 
     if (!current_user_can('manage_options')) {
+        error_log('Unauthorized access');
         wp_send_json_error('Unauthorized access');
         return;
     }
 
     if (!isset($_POST['model_number']) || !isset($_FILES['manual_file'])) {
+        error_log('Missing required fields');
         wp_send_json_error('Missing required fields');
         return;
     }
 
     $model_number = sanitize_text_field($_POST['model_number']);
     $file = $_FILES['manual_file'];
+    $chunk = isset($_POST['chunk']) ? intval($_POST['chunk']) : 0;
+    $chunks = isset($_POST['chunks']) ? intval($_POST['chunks']) : 1;
+
+    error_log('Uploading manual for model: ' . $model_number . ', Chunk: ' . $chunk . '/' . $chunks);
 
     $coolassist_manual = new CoolAssist_Manual();
-    $result = $coolassist_manual->upload_manual($model_number, $file);
+    $result = $coolassist_manual->upload_manual($model_number, $file, $chunk, $chunks);
 
-    if ($result) {
-        wp_send_json_success('Manual uploaded successfully');
+    if (is_wp_error($result)) {
+        error_log('Upload failed: ' . $result->get_error_message());
+        wp_send_json_error($result->get_error_message());
     } else {
-        wp_send_json_error('Failed to upload manual');
+        error_log('Chunk uploaded successfully');
+        wp_send_json_success('Chunk uploaded successfully');
     }
 }
 

@@ -75,29 +75,59 @@ jQuery(document).ready(function($) {
             });
         }
     });
+
     $('#upload-manual-form').on('submit', function(e) {
     e.preventDefault();
-    var formData = new FormData(this);
-    formData.append('action', 'coolassist_upload_manual');
+    var file = $('#manual_file')[0].files[0];
+    var chunkSize = 500 * 1024; // 500KB chunks
+    var chunks = Math.ceil(file.size / chunkSize);
+    var currentChunk = 0;
+    var model_number = $('#model_number').val();
 
-    $.ajax({
-        url: ajaxurl,
-        type: 'POST',
-        data: formData,
-        contentType: false,
-        processData: false,
-        success: function(response) {
-            if (response.success) {
-                alert('Manual uploaded successfully!');
-                location.reload();
-            } else {
-                alert('Error uploading manual: ' + response.data);
+    function uploadChunk() {
+        var start = currentChunk * chunkSize;
+        var end = Math.min(file.size, start + chunkSize);
+        var chunk = file.slice(start, end);
+
+        var formData = new FormData();
+        formData.append('action', 'coolassist_upload_manual');
+        formData.append('upload_manual_nonce', $('#upload_manual_nonce').val());
+        formData.append('model_number', model_number);
+        formData.append('manual_file', chunk, file.name);
+        formData.append('chunk', currentChunk);
+        formData.append('chunks', chunks);
+
+        $.ajax({
+            url: ajaxurl,
+            type: 'POST',
+            data: formData,
+            contentType: false,
+            processData: false,
+            success: function(response) {
+                if (response.success) {
+                    currentChunk++;
+                    if (currentChunk < chunks) {
+                        uploadChunk();
+                    } else {
+                        alert('Manual uploaded successfully!');
+                        location.reload();
+                    }
+                } else {
+                    alert('Error uploading manual: ' + response.data);
+                }
+            },
+            error: function(jqXHR, textStatus, errorThrown) {
+                console.error('Error details:', {
+                    status: jqXHR.status,
+                    statusText: jqXHR.statusText,
+                    responseText: jqXHR.responseText
+                });
+                alert('Error uploading manual. Please check the console for details.');
             }
-        },
-        error: function() {
-            alert('Error uploading manual. Please try again.');
-        }
-    });
+        });
+    }
+
+    uploadChunk();
 });
 
     // Delete manual

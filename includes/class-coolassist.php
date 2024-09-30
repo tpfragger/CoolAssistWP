@@ -21,6 +21,7 @@ class CoolAssist {
         add_action('wp_ajax_coolassist_delete_user', array($this, 'ajax_delete_user'));
         add_action('wp_ajax_coolassist_reset_password', array($this, 'ajax_reset_password'));
         add_action('wp_ajax_coolassist_upload_manual', array($this, 'ajax_upload_manual'));
+        add_action('wp_ajax_nopriv_coolassist_upload_manual', array($this, 'ajax_upload_manual'));
         add_action('wp_ajax_coolassist_delete_manual', array($this, 'ajax_delete_manual'));
         add_action('wp_ajax_get_chat_history', array($this, 'get_chat_history'));
         add_shortcode('coolassist_page', array($this, 'coolassist_page_shortcode'));
@@ -660,25 +661,14 @@ class CoolAssist {
     }
 
     public function ajax_upload_manual() {
-    error_log('AJAX upload manual called');
-    
-    if (!check_ajax_referer('upload_ac_manual', 'nonce', false)) {
-        error_log('Nonce check failed');
-        wp_send_json_error('Nonce verification failed');
-        return;
-    }
-    
+    check_ajax_referer('upload_ac_manual', 'upload_manual_nonce');
+
     if (!current_user_can('manage_options')) {
-        error_log('User does not have permission');
         wp_send_json_error('Unauthorized access');
         return;
     }
 
-    error_log('POST data: ' . print_r($_POST, true));
-    error_log('FILES data: ' . print_r($_FILES, true));
-
     if (!isset($_POST['model_number']) || !isset($_FILES['manual_file'])) {
-        error_log('Missing required fields');
         wp_send_json_error('Missing required fields');
         return;
     }
@@ -686,33 +676,12 @@ class CoolAssist {
     $model_number = sanitize_text_field($_POST['model_number']);
     $file = $_FILES['manual_file'];
 
-    // Check file size (100MB limit)
-    if ($file['size'] > 100 * 1024 * 1024) {
-        error_log('File size exceeds limit');
-        wp_send_json_error('File size exceeds the limit of 100MB');
-        return;
-    }
-
-    // Check file type
-    $finfo = finfo_open(FILEINFO_MIME_TYPE);
-    $file_type = finfo_file($finfo, $file['tmp_name']);
-    finfo_close($finfo);
-
-    $allowed_types = array('application/pdf');
-    if (!in_array($file_type, $allowed_types)) {
-        error_log('Invalid file type: ' . $file_type);
-        wp_send_json_error('Only PDF files are allowed');
-        return;
-    }
-
     $coolassist_manual = new CoolAssist_Manual();
     $result = $coolassist_manual->upload_manual($model_number, $file);
 
     if ($result) {
-        error_log('Manual uploaded successfully');
         wp_send_json_success('Manual uploaded successfully');
     } else {
-        error_log('Failed to upload manual');
         wp_send_json_error('Failed to upload manual');
     }
 }

@@ -4,7 +4,7 @@
     <h2>AC Manuals</h2>
     <p>Manage AC manuals in the <a href="<?php echo admin_url('edit.php?post_type=ac_manual'); ?>">AC Manuals</a> section.</p>
     <h3>Upload AC Manual</h3>
-<form id="upload-manual-form" method="post" enctype="multipart/form-data">
+    <form id="upload-manual-form" method="post" enctype="multipart/form-data">
     <?php wp_nonce_field('upload_ac_manual', 'upload_manual_nonce'); ?>
     <table class="form-table">
         <tr>
@@ -17,9 +17,7 @@
         </tr>
     </table>
     <?php submit_button('Upload Manual'); ?>
-</form>
-
-    
+</form>    
     <h2>User Management</h2>
     <p>Manage AC technician accounts in the <a href="<?php echo admin_url('users.php'); ?>">Users</a> section.</p>
     

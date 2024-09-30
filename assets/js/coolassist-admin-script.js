@@ -75,39 +75,27 @@ jQuery(document).ready(function($) {
             });
         }
     });
-
     $('#upload-manual-form').on('submit', function(e) {
     e.preventDefault();
     var formData = new FormData(this);
     formData.append('action', 'coolassist_upload_manual');
-    formData.append('nonce', $('input[name="upload_manual_nonce"]').val());
-
-    // Log the FormData contents
-    for (var pair of formData.entries()) {
-        console.log(pair[0] + ': ' + pair[1]);
-    }
 
     $.ajax({
-        url: coolassist_ajax.ajax_url,
+        url: ajaxurl,
         type: 'POST',
         data: formData,
         contentType: false,
         processData: false,
         success: function(response) {
-            console.log('Upload response:', response);
             if (response.success) {
                 alert('Manual uploaded successfully!');
                 location.reload();
             } else {
-                alert('Error uploading manual: ' + (response.data || 'Unknown error'));
+                alert('Error uploading manual: ' + response.data);
             }
         },
-        error: function(xhr, status, error) {
-            console.error('Upload error:', xhr.responseText);
-            console.error('Status:', status);
-            console.error('Error:', error);
-            console.error('XHR:', xhr);
-            alert('Error uploading manual. Check console for details.');
+        error: function() {
+            alert('Error uploading manual. Please try again.');
         }
     });
 });

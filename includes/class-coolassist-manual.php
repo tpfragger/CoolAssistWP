@@ -19,6 +19,8 @@ class CoolAssist_Manual {
     $file_name = wp_unique_filename($coolassist_upload_dir, $file['name']);
     $file_path = $coolassist_upload_dir . '/' . $file_name;
 
+    error_log('Attempting to move uploaded file to: ' . $file_path);
+
     if (move_uploaded_file($file['tmp_name'], $file_path)) {
         global $wpdb;
         $result = $wpdb->insert(
@@ -36,6 +38,7 @@ class CoolAssist_Manual {
             return false;
         }
 
+        error_log('Manual uploaded successfully: ' . $file_path);
         return $wpdb->insert_id;
     }
 
